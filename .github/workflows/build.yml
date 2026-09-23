@@ -26,11 +26,12 @@ jobs:
       - name: Montar pacote de instalação
         shell: pwsh
         run: |
-          # Pacote para o usuário final: somente a pasta .bundle + instruções (nenhum script/executável,
-          # para não ser bloqueado pelo Controle de Aplicativo Inteligente do Windows).
+          # Pacote para o usuário final: somente arquivos para copiar + instruções (nenhum
+          # script/executável, para não ser bloqueado pelo Controle de Aplicativo Inteligente).
           $out = "dist/DetalhaBIM-Revit2027"
-          New-Item -ItemType Directory -Force $out | Out-Null
-          Copy-Item src/DetalhaBIM/bin/Release/net10.0-windows/DetalhaBIM.bundle "$out/DetalhaBIM.bundle" -Recurse
+          $copiar = "$out/COPIAR PARA Addins 2027"
+          New-Item -ItemType Directory -Force $copiar | Out-Null
+          Copy-Item src/DetalhaBIM/bin/Release/net10.0-windows/Pacote/* $copiar -Recurse
           Copy-Item install/COMO-INSTALAR.txt "$out/"
           Copy-Item README.md "$out/LEIA-ME.md"
           Copy-Item docs/MANUAL.md "$out/MANUAL.md"

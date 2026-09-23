@@ -1,20 +1,19 @@
 ﻿<#
-  Instala o DetalhaBIM (pacote .bundle) para o usuário atual — uso opcional, para quem compila
-  a partir do código-fonte. Usuários finais: basta copiar a pasta DetalhaBIM.bundle
-  (veja COMO-INSTALAR.txt); nenhum script é necessário.
+  Instala o DetalhaBIM para o usuário atual — uso opcional, para quem compila a partir do
+  código-fonte. Usuários finais: basta copiar os arquivos (veja COMO-INSTALAR.txt).
 #>
 param([string]$RevitVersion = "2027")
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-$bundle = @(
-    (Join-Path $here "DetalhaBIM.bundle"),
-    (Join-Path $here "..\src\DetalhaBIM\bin\Release\net10.0-windows\DetalhaBIM.bundle"),
-    (Join-Path $here "..\src\DetalhaBIM\bin\Debug\net10.0-windows\DetalhaBIM.bundle")
-) | Where-Object { Test-Path (Join-Path $_ "PackageContents.xml") } | Select-Object -First 1
+$pacote = @(
+    (Join-Path $here "COPIAR PARA Addins 2027"),
+    (Join-Path $here "..\src\DetalhaBIM\bin\Release\net10.0-windows\Pacote"),
+    (Join-Path $here "..\src\DetalhaBIM\bin\Debug\net10.0-windows\Pacote")
+) | Where-Object { Test-Path (Join-Path $_ "DetalhaBIM.addin") } | Select-Object -First 1
 
-if (-not $bundle) {
-    Write-Host "Pasta DetalhaBIM.bundle não encontrada. Compile antes com: dotnet build -c Release" -ForegroundColor Red
+if (-not $pacote) {
+    Write-Host "Pacote não encontrado. Compile antes com: dotnet build -c Release" -ForegroundColor Red
     exit 1
 }
 if (Get-Process -Name "Revit" -ErrorAction SilentlyContinue) {
@@ -22,17 +21,14 @@ if (Get-Process -Name "Revit" -ErrorAction SilentlyContinue) {
     exit 1
 }
 
-$plugins = Join-Path $env:APPDATA "Autodesk\ApplicationPlugins"
-$dest = Join-Path $plugins "DetalhaBIM.bundle"
-New-Item -ItemType Directory -Force -Path $plugins | Out-Null
-if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-Copy-Item $bundle $dest -Recurse -Force
-Get-ChildItem $dest -Recurse -File | Unblock-File
+$dest = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+Copy-Item (Join-Path $pacote "*") $dest -Recurse -Force
+Get-ChildItem (Join-Path $dest "DetalhaBIM") -Recurse -File | Unblock-File
+Unblock-File (Join-Path $dest "DetalhaBIM.addin")
 
-# Remove a instalação antiga (versão 1.0, em Addins\2027) para não carregar o plugin duas vezes.
-$old = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
-Remove-Item (Join-Path $old "DetalhaBIM.addin") -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $old "DetalhaBIM") -Recurse -Force -ErrorAction SilentlyContinue
+# Remove o pacote .bundle das versões 1.1.0/1.1.1, para não carregar duas vezes.
+Remove-Item (Join-Path $env:APPDATA "Autodesk\ApplicationPlugins\DetalhaBIM.bundle") -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "DetalhaBIM instalado em: $dest" -ForegroundColor Green

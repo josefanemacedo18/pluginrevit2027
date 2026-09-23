@@ -328,9 +328,9 @@ Os padrões do escritório ficam organizados em abas:
 
 | Situação | Solução |
 |---|---|
-| A aba DetalhaBIM não aparece | Primeiro veja se `%AppData%\DetalhaBIM\logs` existe. Se existir, o plugin carregou e o log mostra o erro. Se não existir, o Revit não carregou o plugin: confira se `PackageContents.xml` está logo dentro de `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle` (sem pasta extra criada ao extrair o ZIP) e veja *Segurança do Windows → Histórico de proteção*. O `COMO-INSTALAR.txt` também traz um local alternativo de instalação. |
-| "Controle de Aplicativo Inteligente" bloqueou o arquivo ou "uma política de Controle de Aplicativo bloqueou este arquivo" | Esse recurso do Windows 11 bloqueia DLLs sem assinatura digital e não aceita exceções. Desative-o em *Segurança do Windows → Controle de aplicativos e do navegador* ou use uma DLL assinada. Veja o LEIA-ME, seção "Controle de Aplicativo Inteligente". |
-| O plugin aparece duas vezes ou dá erro de "AddInId duplicado" | Sobrou a instalação antiga da versão 1.0. Apague `DetalhaBIM.addin` e a pasta `DetalhaBIM` de `%AppData%\Autodesk\Revit\Addins\2027`. |
+| A aba DetalhaBIM não aparece | Siga a seção "Se a aba ainda não aparecer" do `COMO-INSTALAR.txt`. Em resumo: confira se `DetalhaBIM.addin` está em `%AppData%\Autodesk\Revit\Addins\2027` e a DLL em `...\2027\DetalhaBIM\`; veja se existe `%AppData%\DetalhaBIM\logs`; e procure "DetalhaBIM" no journal mais recente do Revit (`%LocalAppData%\Autodesk\Revit\Autodesk Revit 2027\Journals`). |
+| "Controle de Aplicativo Inteligente" bloqueou o arquivo | Esse recurso do Windows 11 bloqueia DLLs sem assinatura digital e não aceita exceções. Desative-o (Iniciar → digite *Controle de Aplicativo Inteligente* → Desativado) ou use uma DLL assinada. |
+| O plugin aparece duas vezes ou dá erro de "AddInId duplicado" | Sobrou uma instalação anterior. Apague `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle`, se existir. |
 | Botões de cotas desabilitados | Eles funcionam somente em plantas. Abra uma planta de piso ou de forro. |
 | "Nenhum ambiente delimitado foi encontrado" | Os ambientes precisam estar colocados e fechados. Rode **Limpar Ambientes** para diagnosticar. |
 | Algumas cotas não foram criadas | Veja o relatório expandido. Paredes curvas e de vínculo não são cotadas automaticamente. |

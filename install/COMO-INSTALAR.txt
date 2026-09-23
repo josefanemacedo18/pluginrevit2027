@@ -2,134 +2,88 @@
   DetalhaBIM para Revit 2027 — COMO INSTALAR (sem instalador e sem scripts)
 ===============================================================================
 
-A instalação é só copiar uma pasta. Nada precisa ser executado.
+A instalação é só copiar 2 itens. Nada precisa ser executado.
 
-0) ANTES DE TUDO: DESLIGUE O "CONTROLE DE APLICATIVO INTELIGENTE"
-   O DetalhaBIM ainda não tem assinatura digital. Com esse recurso do Windows 11
-   ligado, o Windows impede o Revit de carregar o plugin (a aba não aparece e o
-   bloqueio fica registrado em Segurança do Windows > Histórico de proteção).
-   O Windows não oferece "Permitir" nem exceção para esse tipo de bloqueio.
+-------------------------------------------------------------------------------
+  PASSO 0 — DESLIGUE O "CONTROLE DE APLICATIVO INTELIGENTE" (obrigatório)
+-------------------------------------------------------------------------------
+O DetalhaBIM ainda não tem assinatura digital. Com esse recurso do Windows 11
+ligado, o Windows impede o Revit de carregar o plugin, e não existe opção
+"Permitir" para esse bloqueio.
 
-   - Clique em Iniciar e digite:  Controle de Aplicativo Inteligente
-     (ou: Segurança do Windows > Controle de aplicativos e do navegador >
-      Configurações do Controle de Aplicativo Inteligente)
-   - Selecione "Desativado" e confirme.
-   - Evite a opção "Avaliação": nela o Windows pode voltar a ligar o
-     recurso sozinho depois, e o plugin volta a ser bloqueado.
+  - Clique em Iniciar e digite:  Controle de Aplicativo Inteligente
+    (ou: Segurança do Windows > Controle de aplicativos e do navegador >
+     Configurações do Controle de Aplicativo Inteligente)
+  - Selecione "Desativado" e confirme. NÃO use "Avaliação".
+  - Reinicie o computador.
 
-   O Microsoft Defender Antivírus continua protegendo o computador. Com a
-   atualização de abril de 2026 do Windows 11 (KB5083769 ou mais recente), dá
-   para religar o recurso depois pela mesma tela (o plugin então para de
-   carregar). Em versões anteriores, desligar era definitivo.
+O Microsoft Defender Antivírus continua protegendo o computador. Com a
+atualização de abril de 2026 do Windows 11 (KB5083769 ou mais recente), o
+recurso pode ser religado depois pela mesma tela (o plugin então para de
+carregar).
 
+-------------------------------------------------------------------------------
+  PASSO A PASSO
+-------------------------------------------------------------------------------
 1) Feche o Revit.
 
-2) Extraia este arquivo .zip (clique com o botão direito > "Extrair tudo...").
+2) Se você tentou instalar antes, apague a pasta antiga, se ela existir:
+        %AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle
 
-3) Abra o Explorador de Arquivos, clique na barra de endereço, cole o texto
-   abaixo e tecle Enter:
+3) Extraia este .zip (botão direito > "Extrair tudo...").
 
-        %AppData%\Autodesk\ApplicationPlugins
+4) Abra a pasta  "COPIAR PARA Addins 2027". Dentro dela há 2 itens:
+        DetalhaBIM.addin      (arquivo)
+        DetalhaBIM            (pasta, com o DetalhaBIM.dll dentro)
+   Selecione os dois (Ctrl+A) e copie (Ctrl+C).
 
-   Se aparecer "não foi possível encontrar", entre em %AppData%\Autodesk e
-   crie uma pasta chamada ApplicationPlugins.
+5) Clique na barra de endereço do Explorador de Arquivos, cole o texto abaixo
+   e tecle Enter:
 
-4) Copie a pasta  DetalhaBIM.bundle  (inteira) para dentro dessa pasta.
-   O resultado deve ficar assim:
-
-        ApplicationPlugins\
-          DetalhaBIM.bundle\
-            PackageContents.xml
-            Contents\2027\DetalhaBIM.addin
-            Contents\2027\DetalhaBIM.dll
-
-5) Abra o Revit 2027. Se aparecer o aviso de complemento não assinado,
-   escolha "Sempre carregar". A aba "DetalhaBIM" aparece na faixa de opções.
-
-   Para todos os usuários do computador (exige administrador), a pasta é:
-        C:\Program Files\Autodesk\ApplicationPlugins
-
-
--------------------------------------------------------------------------------
-  SE O "CONTROLE DE APLICATIVO INTELIGENTE" DO WINDOWS BLOQUEAR
--------------------------------------------------------------------------------
-
-O Controle de Aplicativo Inteligente (Smart App Control) do Windows 11 bloqueia
-qualquer programa ou DLL que não tenha assinatura digital de uma autoridade
-reconhecida pela Microsoft. Isso vale para todo plugin sem assinatura, não só
-para o DetalhaBIM, e o Windows não permite abrir exceção para um arquivo
-específico.
-
-Sinal de bloqueio: o Revit abre, mas a aba DetalhaBIM não aparece, ou surge uma
-mensagem dizendo que "uma política de Controle de Aplicativo bloqueou este
-arquivo".
-
-Como resolver:
-
-  a) Verifique se o recurso está ativo:
-       Iniciar > Segurança do Windows > Controle de aplicativos e do navegador
-       > Configurações do Controle de Aplicativo Inteligente
-
-  b) Mude para "Desativado" e reinicie o Revit. O Microsoft Defender
-     Antivírus continua protegendo o computador normalmente.
-
-     Com a atualização de abril de 2026 do Windows 11 (KB5083769 ou mais
-     recente), dá para religar o recurso depois pela mesma tela. Em versões
-     anteriores, desligar era definitivo, e religar só reinstalando o Windows.
-     Atualize o Windows antes, se quiser poder voltar atrás.
-
-  c) Alternativa sem desligar o recurso: assinar o DetalhaBIM.dll com um
-     certificado de assinatura de código (code signing) de uma autoridade
-     reconhecida pela Microsoft. Veja a seção "Assinatura digital" no
-     LEIA-ME.md.
-
-
--------------------------------------------------------------------------------
-  SE A ABA DETALHABIM AINDA NÃO APARECER — DESCUBRA O MOTIVO EM 1 MINUTO
--------------------------------------------------------------------------------
-
-1) Com o Revit já aberto, cole na barra de endereço do Explorador:
-
-        %AppData%\DetalhaBIM\logs
-
-   - A pasta EXISTE: o Revit carregou o plugin. Abra o arquivo .log e envie
-     as últimas linhas para o suporte.
-   - A pasta NÃO EXISTE: o Revit nem chegou a carregar o plugin. Siga para
-     os passos 2 a 4.
-
-2) Iniciar > Segurança do Windows > Histórico de proteção.
-   Se houver um bloqueio do "Controle de Aplicativo Inteligente" citando
-   DetalhaBIM.dll, a causa é o bloqueio do Windows. Veja a seção anterior.
-
-3) Confira o caminho. Ele precisa ser exatamente este:
-        %AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle\PackageContents.xml
-   Um erro comum é ficar uma pasta a mais no meio, criada ao extrair o ZIP,
-   por exemplo ...\ApplicationPlugins\DetalhaBIM-Revit2027\DetalhaBIM.bundle\...
-
-4) Local alternativo (use SÓ UM dos dois locais):
-   apague a pasta DetalhaBIM.bundle de ApplicationPlugins e copie os DOIS
-   arquivos de dentro de  DetalhaBIM.bundle\Contents\2027\
-        DetalhaBIM.addin
-        DetalhaBIM.dll
-   diretamente para:
         %AppData%\Autodesk\Revit\Addins\2027
 
-Se nada disso resolver, anote a mensagem que o Revit mostra ao abrir (ou tire
-uma foto da tela) e a versão do Revit (Ajuda > Sobre o Autodesk Revit 2027).
+   Se a pasta 2027 não existir, crie-a dentro de ...\Autodesk\Revit\Addins.
+   Cole ali os 2 itens (Ctrl+V). O resultado deve ser exatamente:
+
+        ...\Autodesk\Revit\Addins\2027\DetalhaBIM.addin
+        ...\Autodesk\Revit\Addins\2027\DetalhaBIM\DetalhaBIM.dll
+
+6) Abra o Revit 2027. Se aparecer o aviso de complemento não assinado,
+   escolha "Sempre carregar". A aba "DetalhaBIM" aparece na faixa de opções.
+
+   Por que essa pasta? No Revit 2027, a pasta de complementos do usuário é o
+   único local que o Revit garante carregar para plugins sem assinatura digital.
+
+
+-------------------------------------------------------------------------------
+  SE A ABA AINDA NÃO APARECER
+-------------------------------------------------------------------------------
+A) Com o Revit aberto, veja se esta pasta existe:
+        %AppData%\DetalhaBIM\logs
+   Se existir, o plugin carregou. Envie as últimas linhas do arquivo .log.
+
+B) Iniciar > Segurança do Windows > Histórico de proteção.
+   Se aparecer um bloqueio NOVO (com data e hora de agora) citando
+   DetalhaBIM.dll, o Controle de Aplicativo Inteligente continua ligado.
+   Refaça o Passo 0.
+
+C) Diário (journal) do Revit — mostra exatamente o que o Revit fez com o plugin:
+   - Feche o Revit, abra-o novamente e feche de novo.
+   - Cole na barra de endereço:
+        %LocalAppData%\Autodesk\Revit\Autodesk Revit 2027\Journals
+   - Ordene por "Data de modificação" e abra o journal.XXXX.txt mais recente
+     no Bloco de Notas.
+   - Tecle Ctrl+F, procure por  DetalhaBIM  e envie as linhas encontradas
+     (ou uma foto delas).
+   - Se não houver nenhuma linha com DetalhaBIM, o Revit não encontrou o
+     arquivo DetalhaBIM.addin. Confira o caminho do passo 5.
 
 
 -------------------------------------------------------------------------------
   ATUALIZAR E DESINSTALAR
 -------------------------------------------------------------------------------
-
-Atualizar:    com o Revit fechado, substitua a pasta DetalhaBIM.bundle pela nova.
-Desinstalar:  com o Revit fechado, apague a pasta DetalhaBIM.bundle.
+Atualizar:    com o Revit fechado, substitua os 2 itens pelos novos.
+Desinstalar:  com o Revit fechado, apague DetalhaBIM.addin e a pasta DetalhaBIM
+              de %AppData%\Autodesk\Revit\Addins\2027.
 
 As suas configurações ficam em %AppData%\DetalhaBIM e são mantidas.
-
-Se você usou o local alternativo, apague os dois arquivos DetalhaBIM.addin e
-DetalhaBIM.dll de %AppData%\Autodesk\Revit\Addins\2027.
-
-Se você instalou a versão 1.0 pelo script, apague também, se existirem:
-    %AppData%\Autodesk\Revit\Addins\2027\DetalhaBIM.addin
-    %AppData%\Autodesk\Revit\Addins\2027\DetalhaBIM   (pasta)

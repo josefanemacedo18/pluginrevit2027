@@ -43,8 +43,8 @@ diálogos que **lembram as últimas opções escolhidas**. Os padrões do escrit
 
 ## Instalação
 
-O DetalhaBIM usa o **formato oficial de pacote da Autodesk** (`.bundle`). Para instalar, basta
-**copiar uma pasta**: não há instalador nem script para executar.
+A instalação é só **copiar 2 itens**: não há instalador nem script para executar. O passo a passo
+completo, com diagnóstico, está no `COMO-INSTALAR.txt` que vem no pacote.
 
 0. **Desligue o Controle de Aplicativo Inteligente do Windows 11.** O plugin ainda não tem assinatura
    digital, e com esse recurso ligado o Windows impede o Revit de carregar a DLL. Veja a seção
@@ -52,26 +52,26 @@ O DetalhaBIM usa o **formato oficial de pacote da Autodesk** (`.bundle`). Para i
 1. Baixe o pacote **DetalhaBIM-Revit2027**. Ele fica em **Actions → Build DetalhaBIM**, na execução mais
    recente, ou em **Releases**, quando houver.
 2. Feche o Revit e extraia o `.zip`.
-3. No Explorador de Arquivos, cole na barra de endereço `%AppData%\Autodesk\ApplicationPlugins` e tecle
-   Enter. Se a pasta não existir, crie-a dentro de `%AppData%\Autodesk`.
-4. Copie para lá a pasta **`DetalhaBIM.bundle`** inteira.
+3. Abra a pasta **`COPIAR PARA Addins 2027`** e copie os 2 itens que estão nela: o arquivo
+   `DetalhaBIM.addin` e a pasta `DetalhaBIM`.
+4. Cole esses 2 itens em `%AppData%\Autodesk\Revit\Addins\2027`. Para chegar lá, cole esse endereço na
+   barra do Explorador de Arquivos.
 5. Abra o Revit 2027 e escolha **"Sempre carregar"**. A aba **DetalhaBIM** aparece na faixa de opções.
 
 ```
-%AppData%\Autodesk\ApplicationPlugins\
-└── DetalhaBIM.bundle\
-    ├── PackageContents.xml
-    └── Contents\2027\
-        ├── DetalhaBIM.addin
-        └── DetalhaBIM.dll
+%AppData%\Autodesk\Revit\Addins\2027\
+├── DetalhaBIM.addin
+└── DetalhaBIM\
+    └── DetalhaBIM.dll
 ```
 
-- **Todos os usuários do computador:** use `C:\Program Files\Autodesk\ApplicationPlugins`, o que exige
-  administrador. O Revit 2027 não lê mais `C:\ProgramData\Autodesk\ApplicationPlugins`.
-- **Atualizar:** substitua a pasta `DetalhaBIM.bundle`, com o Revit fechado.
-- **Desinstalar:** apague a pasta. As configurações em `%AppData%\DetalhaBIM` são mantidas.
-- **Quem instalou a versão 1.0 pelo script** deve apagar `DetalhaBIM.addin` e a pasta `DetalhaBIM` de
-  `%AppData%\Autodesk\Revit\Addins\2027`, para o plugin não carregar duas vezes.
+- **Por que essa pasta:** no Revit 2027, a pasta de complementos do usuário é o único local que o Revit
+  garante carregar para plugins sem assinatura digital. O Revit 2027 ignora `C:\ProgramData\...\Addins\2027`.
+- **Atualizar:** substitua os 2 itens, com o Revit fechado.
+- **Desinstalar:** apague `DetalhaBIM.addin` e a pasta `DetalhaBIM`. As configurações em
+  `%AppData%\DetalhaBIM` são mantidas.
+- **Quem instalou as versões 1.1.0 ou 1.1.1** (pacote `.bundle`) deve apagar a pasta
+  `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle`.
 
 ### Controle de Aplicativo Inteligente (Smart App Control) do Windows 11
 
@@ -103,7 +103,7 @@ dotnet build src/DetalhaBIM/DetalhaBIM.csproj -c Release -p:SignThumbprint=<impr
 Outra opção é assinar a DLL já pronta:
 
 ```powershell
-signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /a DetalhaBIM.bundle\Contents\2027\DetalhaBIM.dll
+signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /a DetalhaBIM\DetalhaBIM.dll
 ```
 
 Certificados autoassinados não servem: o Windows só aceita certificados de autoridades do programa de
@@ -116,11 +116,11 @@ Você precisa do Windows com o [.NET 10 SDK](https://dotnet.microsoft.com/downlo
 ```powershell
 git clone https://github.com/josefanemacedo18/pluginrevit2027.git
 cd pluginrevit2027
-dotnet build -c Release     # gera src\DetalhaBIM\bin\Release\net10.0-windows\DetalhaBIM.bundle
+dotnet build -c Release     # gera src\DetalhaBIM\bin\Release\net10.0-windows\Pacote
 ```
 
 Em **Debug** (`dotnet build`), o pacote é instalado automaticamente em
-`%AppData%\Autodesk\ApplicationPlugins`. Para desativar, use `-p:DeployToRevit=false`. Os scripts
+`%AppData%\Autodesk\Revit\Addins\2027`. Para desativar, use `-p:DeployToRevit=false`. Os scripts
 `install/Instalar.ps1` e `install/Desinstalar.ps1` fazem a mesma cópia e servem para quem compila o código.
 
 ---
@@ -146,8 +146,7 @@ Em **Debug** (`dotnet build`), o pacote é instalado automaticamente em
   os assemblies de referência `Nice3point.Revit.Api.RevitAPI/RevitAPIUI 2027.*`, que não são copiados para a saída.
 - **Compila em Linux/macOS** (`EnableWindowsTargeting`), o que permite rodar CI em qualquer runner.
 - **Sem dependências externas:** as interfaces são montadas em código WPF com tema próprio, e os ícones vetoriais
-  são desenhados em tempo de execução. O pacote publicado é só a pasta `DetalhaBIM.bundle`, com
-  `PackageContents.xml`, `DetalhaBIM.addin` e `DetalhaBIM.dll`.
+  são desenhados em tempo de execução. O pacote publicado tem só `DetalhaBIM.addin` e `DetalhaBIM\DetalhaBIM.dll`.
 
 ```
 src/DetalhaBIM/
