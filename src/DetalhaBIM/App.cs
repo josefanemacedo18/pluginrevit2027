@@ -17,6 +17,7 @@ namespace DetalhaBIM
         {
             try
             {
+                Logger.Info($"Iniciando DetalhaBIM {Version} (Revit {application.ControlledApplication.VersionNumber}, build {application.ControlledApplication.VersionBuild}).");
                 RibbonBuilder.Build(application);
                 Logger.Info($"DetalhaBIM {Version} carregado no Revit {application.ControlledApplication.VersionNumber}.");
                 return Result.Succeeded;

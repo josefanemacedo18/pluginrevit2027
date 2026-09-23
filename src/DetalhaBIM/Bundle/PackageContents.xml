@@ -7,7 +7,7 @@
                     AutodeskProduct="Revit"
                     ProductType="Application"
                     Name="DetalhaBIM"
-                    AppVersion="1.1.0"
+                    AppVersion="1.1.1"
                     Description="Automação de detalhamento arquitetônico para Revit 2027: cotas, vistas por ambiente, plantas técnicas, esquadrias, quadros, pranchas, níveis, eixos, forros, pisos e luminárias."
                     Author="DetalhaBIM"
                     OnlineDocumentation="https://github.com/josefanemacedo18/pluginrevit2027/blob/main/docs/MANUAL.md"
@@ -18,7 +18,7 @@
   <Components Description="Revit 2027">
     <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2027" SeriesMax="R2027" />
     <ComponentEntry AppName="DetalhaBIM"
-                    Version="1.1.0"
+                    Version="1.1.1"
                     ModuleName="./Contents/2027/DetalhaBIM.addin"
                     AppDescription="DetalhaBIM para Revit 2027" />
   </Components>

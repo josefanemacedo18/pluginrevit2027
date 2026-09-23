@@ -44,7 +44,7 @@ namespace DetalhaBIM.Ribbon
             new PanelDef { Name = "Documentação", Color = Theme.Documentacao },
             new PanelDef { Name = "Organização", Color = Theme.Organizacao },
             new PanelDef { Name = "Modelagem", Color = Theme.Modelagem },
-            new PanelDef { Name = "DetalhaBIM", Color = Theme.Geral },
+            new PanelDef { Name = "Geral", Color = Theme.Geral },
         };
 
         public static readonly List<ToolDef> Tools = new List<ToolDef>
@@ -195,14 +195,14 @@ namespace DetalhaBIM.Ribbon
             // ------------------------------------------------------------ Geral
             new ToolDef
             {
-                Panel = "DetalhaBIM", Id = "Configuracoes", Text = "Configurações", Command = typeof(ConfiguracoesCommand), Icon = "config", Small = true,
+                Panel = "Geral", Id = "Configuracoes", Text = "Configurações", Command = typeof(ConfiguracoesCommand), Icon = "config", Small = true,
                 Availability = typeof(AlwaysAvailable),
                 Tooltip = "Padrões do escritório: cotas, vistas, plantas técnicas, pranchas...",
                 Description = "Defina os padrões do seu escritório (tipos de cota, afastamentos, modelos de vista, escalas, nomes, lista de plantas técnicas, carimbo, prefixos). Exporte e importe para compartilhar com a equipe.",
             },
             new ToolDef
             {
-                Panel = "DetalhaBIM", Id = "Sobre", Text = "Ajuda", Command = typeof(SobreCommand), Icon = "sobre", Small = true,
+                Panel = "Geral", Id = "Sobre", Text = "Ajuda", Command = typeof(SobreCommand), Icon = "sobre", Small = true,
                 Availability = typeof(AlwaysAvailable),
                 Tooltip = "Guia rápido das ferramentas e versão.",
                 Description = "Mostra todas as ferramentas com instruções rápidas, a versão instalada e atalhos para as pastas de configurações e logs.",

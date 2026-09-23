@@ -67,6 +67,40 @@ Como resolver:
 
 
 -------------------------------------------------------------------------------
+  SE A ABA DETALHABIM AINDA NÃO APARECER — DESCUBRA O MOTIVO EM 1 MINUTO
+-------------------------------------------------------------------------------
+
+1) Com o Revit já aberto, cole na barra de endereço do Explorador:
+
+        %AppData%\DetalhaBIM\logs
+
+   - A pasta EXISTE: o Revit carregou o plugin. Abra o arquivo .log e envie
+     as últimas linhas para o suporte.
+   - A pasta NÃO EXISTE: o Revit nem chegou a carregar o plugin. Siga para
+     os passos 2 a 4.
+
+2) Iniciar > Segurança do Windows > Histórico de proteção.
+   Se houver um bloqueio do "Controle de Aplicativo Inteligente" citando
+   DetalhaBIM.dll, a causa é o bloqueio do Windows. Veja a seção anterior.
+
+3) Confira o caminho. Ele precisa ser exatamente este:
+        %AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle\PackageContents.xml
+   Um erro comum é ficar uma pasta a mais no meio, criada ao extrair o ZIP,
+   por exemplo ...\ApplicationPlugins\DetalhaBIM-Revit2027\DetalhaBIM.bundle\...
+
+4) Local alternativo (use SÓ UM dos dois locais):
+   apague a pasta DetalhaBIM.bundle de ApplicationPlugins e copie os DOIS
+   arquivos de dentro de  DetalhaBIM.bundle\Contents\2027\
+        DetalhaBIM.addin
+        DetalhaBIM.dll
+   diretamente para:
+        %AppData%\Autodesk\Revit\Addins\2027
+
+Se nada disso resolver, anote a mensagem que o Revit mostra ao abrir (ou tire
+uma foto da tela) e a versão do Revit (Ajuda > Sobre o Autodesk Revit 2027).
+
+
+-------------------------------------------------------------------------------
   ATUALIZAR E DESINSTALAR
 -------------------------------------------------------------------------------
 
@@ -75,6 +109,9 @@ Desinstalar:  com o Revit fechado, apague a pasta DetalhaBIM.bundle.
 
 As suas configurações ficam em %AppData%\DetalhaBIM e são mantidas.
 
-Se você instalou uma versão anterior pelo script, apague também, se existirem:
+Se você usou o local alternativo, apague os dois arquivos DetalhaBIM.addin e
+DetalhaBIM.dll de %AppData%\Autodesk\Revit\Addins\2027.
+
+Se você instalou a versão 1.0 pelo script, apague também, se existirem:
     %AppData%\Autodesk\Revit\Addins\2027\DetalhaBIM.addin
     %AppData%\Autodesk\Revit\Addins\2027\DetalhaBIM   (pasta)

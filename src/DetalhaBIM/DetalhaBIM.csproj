@@ -13,7 +13,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>DetalhaBIM</AssemblyName>
     <RootNamespace>DetalhaBIM</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Product>DetalhaBIM</Product>
     <Description>Automação de detalhamento arquitetônico para Autodesk Revit 2027</Description>
     <Copyright>DetalhaBIM</Copyright>
@@ -26,8 +26,8 @@
 
   <ItemGroup>
     <!-- Assemblies de referência da API do Revit 2027 (não são copiados para a saída) -->
-    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2027.2.0" ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2027.2.0" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2027.0.0" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2027.0.0" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

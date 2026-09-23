@@ -81,8 +81,16 @@ namespace DetalhaBIM.Ribbon
                         EndLineCap = PenLineCap.Round,
                         LineJoin = PenLineJoin.Round,
                     };
-                    if (glyph.Stroke != null) dc.DrawGeometry(null, pen, Geometry.Parse(glyph.Stroke));
-                    if (glyph.Fill != null) dc.DrawGeometry(Brushes.White, null, Geometry.Parse(glyph.Fill));
+                    try
+                    {
+                        if (glyph.Stroke != null) dc.DrawGeometry(null, pen, Geometry.Parse(glyph.Stroke));
+                        if (glyph.Fill != null) dc.DrawGeometry(Brushes.White, null, Geometry.Parse(glyph.Fill));
+                    }
+                    catch (System.Exception ex)
+                    {
+                        // Ícone com defeito vira apenas o quadrado colorido; nunca impede a faixa de opções.
+                        DetalhaBIM.Core.Logger.Error("Ícone " + key, ex);
+                    }
                     dc.Pop();
                     dc.Pop();
                 }

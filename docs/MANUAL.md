@@ -328,7 +328,7 @@ Os padrões do escritório ficam organizados em abas:
 
 | Situação | Solução |
 |---|---|
-| A aba DetalhaBIM não aparece | Confira se a pasta `DetalhaBIM.bundle` está em `%AppData%\Autodesk\ApplicationPlugins`, com `PackageContents.xml` logo dentro dela, e não numa subpasta extra criada ao extrair o ZIP. |
+| A aba DetalhaBIM não aparece | Primeiro veja se `%AppData%\DetalhaBIM\logs` existe. Se existir, o plugin carregou e o log mostra o erro. Se não existir, o Revit não carregou o plugin: confira se `PackageContents.xml` está logo dentro de `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle` (sem pasta extra criada ao extrair o ZIP) e veja *Segurança do Windows → Histórico de proteção*. O `COMO-INSTALAR.txt` também traz um local alternativo de instalação. |
 | "Controle de Aplicativo Inteligente" bloqueou o arquivo ou "uma política de Controle de Aplicativo bloqueou este arquivo" | Esse recurso do Windows 11 bloqueia DLLs sem assinatura digital e não aceita exceções. Desative-o em *Segurança do Windows → Controle de aplicativos e do navegador* ou use uma DLL assinada. Veja o LEIA-ME, seção "Controle de Aplicativo Inteligente". |
 | O plugin aparece duas vezes ou dá erro de "AddInId duplicado" | Sobrou a instalação antiga da versão 1.0. Apague `DetalhaBIM.addin` e a pasta `DetalhaBIM` de `%AppData%\Autodesk\Revit\Addins\2027`. |
 | Botões de cotas desabilitados | Eles funcionam somente em plantas. Abra uma planta de piso ou de forro. |

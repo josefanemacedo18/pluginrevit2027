@@ -24,27 +24,47 @@ namespace DetalhaBIM.Ribbon
             }
 
             string assembly = typeof(RibbonBuilder).Assembly.Location;
+            int created = 0;
             foreach (PanelDef panelDef in ToolCatalog.Panels)
             {
-                RibbonPanel panel = app.CreateRibbonPanel(TabName, panelDef.Name);
-                var pending = new List<PushButtonData>();
+                RibbonPanel panel;
+                try
+                {
+                    panel = app.CreateRibbonPanel(TabName, panelDef.Name);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Criar painel " + panelDef.Name, ex);
+                    continue;
+                }
 
+                var pending = new List<PushButtonData>();
                 foreach (ToolDef tool in ToolCatalog.Tools.Where(t => t.Panel == panelDef.Name))
                 {
-                    PushButtonData data = Data(tool, panelDef, assembly);
-                    if (tool.Small)
+                    try
                     {
-                        pending.Add(data);
-                        if (pending.Count == 3) Flush(panel, pending);
+                        PushButtonData data = Data(tool, panelDef, assembly);
+                        if (tool.Small)
+                        {
+                            pending.Add(data);
+                            if (pending.Count == 3) created += Flush(panel, pending);
+                        }
+                        else
+                        {
+                            created += Flush(panel, pending);
+                            panel.AddItem(data);
+                            created++;
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        Flush(panel, pending);
-                        panel.AddItem(data);
+                        // Um botão com problema não impede a criação dos demais.
+                        Logger.Error("Criar botão " + tool.Id, ex);
                     }
                 }
-                Flush(panel, pending);
+                created += Flush(panel, pending);
             }
+            Logger.Info($"Faixa de opções criada com {created} botões (assembly: {assembly}).");
         }
 
         private static PushButtonData Data(ToolDef tool, PanelDef panel, string assembly)
@@ -68,23 +88,36 @@ namespace DetalhaBIM.Ribbon
             return data;
         }
 
-        private static void Flush(RibbonPanel panel, List<PushButtonData> pending)
+        private static int Flush(RibbonPanel panel, List<PushButtonData> pending)
         {
-            switch (pending.Count)
+            int count = pending.Count;
+            try
             {
-                case 0:
-                    return;
-                case 1:
-                    panel.AddItem(pending[0]);
-                    break;
-                case 2:
-                    panel.AddStackedItems(pending[0], pending[1]);
-                    break;
-                default:
-                    panel.AddStackedItems(pending[0], pending[1], pending[2]);
-                    break;
+                switch (count)
+                {
+                    case 0:
+                        return 0;
+                    case 1:
+                        panel.AddItem(pending[0]);
+                        break;
+                    case 2:
+                        panel.AddStackedItems(pending[0], pending[1]);
+                        break;
+                    default:
+                        panel.AddStackedItems(pending[0], pending[1], pending[2]);
+                        break;
+                }
             }
-            pending.Clear();
+            catch (Exception ex)
+            {
+                Logger.Error("Criar botões empilhados", ex);
+                count = 0;
+            }
+            finally
+            {
+                pending.Clear();
+            }
+            return count;
         }
     }
 }
