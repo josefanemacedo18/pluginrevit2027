@@ -328,9 +328,10 @@ Os padrões do escritório ficam organizados em abas:
 
 | Situação | Solução |
 |---|---|
-| A aba DetalhaBIM não aparece | Siga a seção "Se a aba ainda não aparecer" do `COMO-INSTALAR.txt`. Em resumo: confira se `DetalhaBIM.addin` está em `%AppData%\Autodesk\Revit\Addins\2027` e a DLL em `...\2027\DetalhaBIM\`; veja se existe `%AppData%\DetalhaBIM\logs`; e procure "DetalhaBIM" no journal mais recente do Revit (`%LocalAppData%\Autodesk\Revit\Autodesk Revit 2027\Journals`). |
+| A aba DetalhaBIM não aparece | Siga a seção "Se a aba ainda não aparecer" do `COMO-INSTALAR.txt`. Em resumo: confira se `DetalhaBIM.addin` e `DetalhaBIM.dll` estão lado a lado em `%AppData%\Autodesk\Revit\Addins\2027`; veja se existe `%AppData%\DetalhaBIM\logs`; e procure "DetalhaBIM" no journal mais recente do Revit (`%LocalAppData%\Autodesk\Revit\Autodesk Revit 2027\Journals`). |
 | "Controle de Aplicativo Inteligente" bloqueou o arquivo | Esse recurso do Windows 11 bloqueia DLLs sem assinatura digital e não aceita exceções. Desative-o (Iniciar → digite *Controle de Aplicativo Inteligente* → Desativado) ou use uma DLL assinada. |
-| O plugin aparece duas vezes ou dá erro de "AddInId duplicado" | Sobrou uma instalação anterior. Apague `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle`, se existir. |
+| "Failed to initialize the add-in... the assembly does not exist" (a DLL não existe) | A `DetalhaBIM.dll` não está na mesma pasta do `DetalhaBIM.addin`, ou foi removida pelo antivírus (veja *Segurança do Windows → Histórico de proteção*). Copie de novo os 2 arquivos, lado a lado. |
+| O plugin aparece duas vezes ou dá erro de "AddInId duplicado" | Sobrou uma instalação anterior. Apague `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle` e a pasta `DetalhaBIM` dentro de `Addins\2027`, se existirem. |
 | Botões de cotas desabilitados | Eles funcionam somente em plantas. Abra uma planta de piso ou de forro. |
 | "Nenhum ambiente delimitado foi encontrado" | Os ambientes precisam estar colocados e fechados. Rode **Limpar Ambientes** para diagnosticar. |
 | Algumas cotas não foram criadas | Veja o relatório expandido. Paredes curvas e de vínculo não são cotadas automaticamente. |

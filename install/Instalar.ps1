@@ -24,11 +24,12 @@ if (Get-Process -Name "Revit" -ErrorAction SilentlyContinue) {
 $dest = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 Copy-Item (Join-Path $pacote "*") $dest -Recurse -Force
-Get-ChildItem (Join-Path $dest "DetalhaBIM") -Recurse -File | Unblock-File
 Unblock-File (Join-Path $dest "DetalhaBIM.addin")
+Unblock-File (Join-Path $dest "DetalhaBIM.dll")
 
-# Remove o pacote .bundle das versões 1.1.0/1.1.1, para não carregar duas vezes.
+# Remove restos de versões anteriores, para não carregar duas vezes.
 Remove-Item (Join-Path $env:APPDATA "Autodesk\ApplicationPlugins\DetalhaBIM.bundle") -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $dest "DetalhaBIM") -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "DetalhaBIM instalado em: $dest" -ForegroundColor Green

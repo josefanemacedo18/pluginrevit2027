@@ -2,7 +2,7 @@
   DetalhaBIM para Revit 2027 — COMO INSTALAR (sem instalador e sem scripts)
 ===============================================================================
 
-A instalação é só copiar 2 itens. Nada precisa ser executado.
+A instalação é só copiar 2 arquivos. Nada precisa ser executado.
 
 -------------------------------------------------------------------------------
   PASSO 0 — DESLIGUE O "CONTROLE DE APLICATIVO INTELIGENTE" (obrigatório)
@@ -27,14 +27,16 @@ carregar).
 -------------------------------------------------------------------------------
 1) Feche o Revit.
 
-2) Se você tentou instalar antes, apague a pasta antiga, se ela existir:
-        %AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle
+2) Se você tentou instalar antes, apague o que sobrou, se existir:
+        %AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle   (pasta)
+        %AppData%\Autodesk\Revit\Addins\2027\DetalhaBIM          (pasta)
+        %AppData%\Autodesk\Revit\Addins\2027\DetalhaBIM.addin    (arquivo antigo)
 
 3) Extraia este .zip (botão direito > "Extrair tudo...").
 
-4) Abra a pasta  "COPIAR PARA Addins 2027". Dentro dela há 2 itens:
-        DetalhaBIM.addin      (arquivo)
-        DetalhaBIM            (pasta, com o DetalhaBIM.dll dentro)
+4) Abra a pasta  "COPIAR PARA Addins 2027". Dentro dela há 2 arquivos:
+        DetalhaBIM.addin
+        DetalhaBIM.dll
    Selecione os dois (Ctrl+A) e copie (Ctrl+C).
 
 5) Clique na barra de endereço do Explorador de Arquivos, cole o texto abaixo
@@ -43,10 +45,15 @@ carregar).
         %AppData%\Autodesk\Revit\Addins\2027
 
    Se a pasta 2027 não existir, crie-a dentro de ...\Autodesk\Revit\Addins.
-   Cole ali os 2 itens (Ctrl+V). O resultado deve ser exatamente:
+   Cole ali os 2 arquivos (Ctrl+V). Os dois precisam ficar LADO A LADO, na
+   mesma pasta:
 
         ...\Autodesk\Revit\Addins\2027\DetalhaBIM.addin
-        ...\Autodesk\Revit\Addins\2027\DetalhaBIM\DetalhaBIM.dll
+        ...\Autodesk\Revit\Addins\2027\DetalhaBIM.dll
+
+   Se o Revit disser que o arquivo .dll "não existe", a DLL não está ao lado
+   do .addin, ou foi removida pelo antivírus (confira em Segurança do Windows >
+   Histórico de proteção).
 
 6) Abra o Revit 2027. Se aparecer o aviso de complemento não assinado,
    escolha "Sempre carregar". A aba "DetalhaBIM" aparece na faixa de opções.
@@ -82,8 +89,8 @@ C) Diário (journal) do Revit — mostra exatamente o que o Revit fez com o plug
 -------------------------------------------------------------------------------
   ATUALIZAR E DESINSTALAR
 -------------------------------------------------------------------------------
-Atualizar:    com o Revit fechado, substitua os 2 itens pelos novos.
-Desinstalar:  com o Revit fechado, apague DetalhaBIM.addin e a pasta DetalhaBIM
+Atualizar:    com o Revit fechado, substitua os 2 arquivos pelos novos.
+Desinstalar:  com o Revit fechado, apague DetalhaBIM.addin e DetalhaBIM.dll
               de %AppData%\Autodesk\Revit\Addins\2027.
 
 As suas configurações ficam em %AppData%\DetalhaBIM e são mantidas.

@@ -13,7 +13,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>DetalhaBIM</AssemblyName>
     <RootNamespace>DetalhaBIM</RootNamespace>
-    <Version>1.1.2</Version>
+    <Version>1.1.3</Version>
     <Product>DetalhaBIM</Product>
     <Description>Automação de detalhamento arquitetônico para Autodesk Revit 2027</Description>
     <Copyright>DetalhaBIM</Copyright>
@@ -41,8 +41,7 @@
 
       Pacote\
       ├── DetalhaBIM.addin
-      └── DetalhaBIM\
-          └── DetalhaBIM.dll
+      └── DetalhaBIM.dll        (na mesma pasta do .addin)
   -->
   <Target Name="MontarPacote" AfterTargets="Build" DependsOnTargets="AssinarDll">
     <PropertyGroup>
@@ -50,7 +49,7 @@
     </PropertyGroup>
     <RemoveDir Directories="$(PacoteDir)" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\DetalhaBIM.addin" DestinationFolder="$(PacoteDir)" />
-    <Copy SourceFiles="$(TargetDir)DetalhaBIM.dll;$(TargetDir)DetalhaBIM.pdb" DestinationFolder="$(PacoteDir)DetalhaBIM" />
+    <Copy SourceFiles="$(TargetDir)DetalhaBIM.dll" DestinationFolder="$(PacoteDir)" />
     <Message Importance="high" Text="Pacote pronto: $(PacoteDir)" />
   </Target>
 
@@ -69,8 +68,8 @@
   </Target>
 
   <!--
-    Em Windows, após compilar em Debug, instala em %AppData%\Autodesk\Revit\Addins\2027 e remove o
-    pacote .bundle das versões 1.1.0/1.1.1 (em ApplicationPlugins), se existir.
+    Em Windows, após compilar em Debug, instala em %AppData%\Autodesk\Revit\Addins\2027 e remove
+    restos de versões anteriores (pasta DetalhaBIM em Addins\2027 e pacote .bundle em ApplicationPlugins).
     Desative com: dotnet build -p:DeployToRevit=false
   -->
   <Target Name="DeployToRevit" AfterTargets="MontarPacote" Condition="'$(OS)' == 'Windows_NT' And '$(Configuration)' == 'Debug' And '$(DeployToRevit)' != 'false'">
@@ -80,7 +79,7 @@
     <ItemGroup>
       <PacoteFiles Include="$(TargetDir)Pacote\**\*" />
     </ItemGroup>
-    <RemoveDir Directories="$(AppData)\Autodesk\ApplicationPlugins\DetalhaBIM.bundle" ContinueOnError="true" />
+    <RemoveDir Directories="$(AppData)\Autodesk\ApplicationPlugins\DetalhaBIM.bundle;$(RevitAddinsDir)DetalhaBIM" ContinueOnError="true" />
     <Copy SourceFiles="@(PacoteFiles)" DestinationFiles="@(PacoteFiles->'$(RevitAddinsDir)%(RecursiveDir)%(Filename)%(Extension)')" ContinueOnError="true" />
     <Message Importance="high" Text="DetalhaBIM instalado em $(RevitAddinsDir)" />
   </Target>
