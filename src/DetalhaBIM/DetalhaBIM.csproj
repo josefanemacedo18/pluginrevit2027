@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Revit 2027 roda sobre .NET 10 -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Permite compilar também em Linux/macOS (CI) -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <OutputType>Library</OutputType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>DetalhaBIM</AssemblyName>
+    <RootNamespace>DetalhaBIM</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>DetalhaBIM</Product>
+    <Description>Automação de detalhamento arquitetônico para Autodesk Revit 2027</Description>
+    <Copyright>DetalhaBIM</Copyright>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <SatelliteResourceLanguages>pt-BR</SatelliteResourceLanguages>
+    <RevitVersion>2027</RevitVersion>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Assemblies de referência da API do Revit 2027 (não são copiados para a saída) -->
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2027.2.0" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2027.2.0" ExcludeAssets="runtime" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="DetalhaBIM.addin" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    Em Windows, após compilar em Debug, copia o plugin para a pasta de add-ins do Revit 2027
+    (%AppData%\Autodesk\Revit\Addins\2027). Desative com: dotnet build -p:DeployToRevit=false
+  -->
+  <Target Name="DeployToRevit" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT' And '$(Configuration)' == 'Debug' And '$(DeployToRevit)' != 'false'">
+    <PropertyGroup>
+      <RevitAddinsDir>$(AppData)\Autodesk\Revit\Addins\$(RevitVersion)</RevitAddinsDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <DeployFiles Include="$(TargetDir)DetalhaBIM.dll;$(TargetDir)DetalhaBIM.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="$(TargetDir)DetalhaBIM.addin" DestinationFolder="$(RevitAddinsDir)" ContinueOnError="true" />
+    <Copy SourceFiles="@(DeployFiles)" DestinationFolder="$(RevitAddinsDir)\DetalhaBIM" ContinueOnError="true" />
+    <Message Importance="high" Text="DetalhaBIM copiado para $(RevitAddinsDir)" />
+  </Target>
+
+</Project>

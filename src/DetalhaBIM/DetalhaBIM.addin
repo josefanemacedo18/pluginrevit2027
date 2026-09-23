@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>DetalhaBIM</Name>
+    <!-- Caminho relativo a este arquivo .addin -->
+    <Assembly>DetalhaBIM\DetalhaBIM.dll</Assembly>
+    <AddInId>6E2C1B1A-4B6F-4F0E-9C2D-8A7D3B5E1F42</AddInId>
+    <FullClassName>DetalhaBIM.App</FullClassName>
+    <VendorId>DTBM</VendorId>
+    <VendorDescription>DetalhaBIM - Automação de detalhamento arquitetônico para Revit</VendorDescription>
+  </AddIn>
+</RevitAddIns>

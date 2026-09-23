@@ -1,0 +1,49 @@
+name: Build DetalhaBIM
+
+on:
+  push:
+    branches: [ main, 'claude/**' ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Compilar
+        run: dotnet build src/DetalhaBIM/DetalhaBIM.csproj -c Release -p:DeployToRevit=false
+
+      - name: Montar pacote de instalação
+        shell: pwsh
+        run: |
+          $out = "dist/DetalhaBIM-Revit2027"
+          New-Item -ItemType Directory -Force "$out/DetalhaBIM" | Out-Null
+          Copy-Item src/DetalhaBIM/bin/Release/net10.0-windows/DetalhaBIM.dll "$out/DetalhaBIM/"
+          Copy-Item src/DetalhaBIM/bin/Release/net10.0-windows/DetalhaBIM.pdb "$out/DetalhaBIM/"
+          Copy-Item src/DetalhaBIM/DetalhaBIM.addin "$out/"
+          Copy-Item install/* "$out/"
+          Copy-Item README.md "$out/LEIA-ME.md"
+          Copy-Item docs/MANUAL.md "$out/MANUAL.md"
+          Compress-Archive -Path "$out/*" -DestinationPath "dist/DetalhaBIM-Revit2027.zip" -Force
+
+      - name: Publicar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: DetalhaBIM-Revit2027
+          path: dist/DetalhaBIM-Revit2027
+
+      - name: Criar release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DetalhaBIM-Revit2027.zip
