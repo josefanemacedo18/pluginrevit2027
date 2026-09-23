@@ -13,7 +13,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>DetalhaBIM</AssemblyName>
     <RootNamespace>DetalhaBIM</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>DetalhaBIM</Product>
     <Description>Automação de detalhamento arquitetônico para Autodesk Revit 2027</Description>
     <Copyright>DetalhaBIM</Copyright>
@@ -31,23 +31,64 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="DetalhaBIM.addin" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="DetalhaBIM.addin" />
+    <None Include="Bundle\PackageContents.xml" />
   </ItemGroup>
 
   <!--
-    Em Windows, após compilar em Debug, copia o plugin para a pasta de add-ins do Revit 2027
-    (%AppData%\Autodesk\Revit\Addins\2027). Desative com: dotnet build -p:DeployToRevit=false
+    Monta, na pasta de saída, o pacote no formato oficial da Autodesk:
+
+      DetalhaBIM.bundle\
+      ├── PackageContents.xml
+      └── Contents\2027\
+          ├── DetalhaBIM.addin
+          └── DetalhaBIM.dll
+
+    Instalação: copiar a pasta DetalhaBIM.bundle para %AppData%\Autodesk\ApplicationPlugins.
+    Não é necessário executar scripts nem instaladores.
   -->
-  <Target Name="DeployToRevit" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT' And '$(Configuration)' == 'Debug' And '$(DeployToRevit)' != 'false'">
+  <Target Name="MontarBundle" AfterTargets="Build" DependsOnTargets="AssinarDll">
     <PropertyGroup>
-      <RevitAddinsDir>$(AppData)\Autodesk\Revit\Addins\$(RevitVersion)</RevitAddinsDir>
+      <BundleDir>$(TargetDir)DetalhaBIM.bundle\</BundleDir>
+      <BundleContents>$(BundleDir)Contents\$(RevitVersion)\</BundleContents>
+    </PropertyGroup>
+    <RemoveDir Directories="$(BundleDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Bundle\PackageContents.xml" DestinationFolder="$(BundleDir)" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\DetalhaBIM.addin;$(TargetDir)DetalhaBIM.dll;$(TargetDir)DetalhaBIM.pdb" DestinationFolder="$(BundleContents)" />
+    <Message Importance="high" Text="Pacote pronto: $(BundleDir)" />
+  </Target>
+
+  <!--
+    Assinatura digital opcional (necessária para o Controle de Aplicativo Inteligente do Windows 11
+    aceitar o plugin sem ser desligado). Requer um certificado de assinatura de código instalado
+    e o signtool no PATH (Developer PowerShell do Visual Studio / Windows SDK):
+
+      dotnet build -c Release -p:SignThumbprint=<impressão digital do certificado>
+  -->
+  <Target Name="AssinarDll" Condition="'$(SignThumbprint)' != '' And '$(OS)' == 'Windows_NT'">
+    <PropertyGroup>
+      <SignTimestampUrl Condition="'$(SignTimestampUrl)' == ''">http://timestamp.digicert.com</SignTimestampUrl>
+    </PropertyGroup>
+    <Exec Command="signtool sign /fd SHA256 /td SHA256 /tr $(SignTimestampUrl) /sha1 $(SignThumbprint) &quot;$(TargetPath)&quot;" />
+  </Target>
+
+  <!--
+    Em Windows, após compilar em Debug, instala o pacote em %AppData%\Autodesk\ApplicationPlugins
+    (e remove a instalação antiga em Addins\2027, se existir, para não carregar duas vezes).
+    Desative com: dotnet build -p:DeployToRevit=false
+  -->
+  <Target Name="DeployToRevit" AfterTargets="MontarBundle" Condition="'$(OS)' == 'Windows_NT' And '$(Configuration)' == 'Debug' And '$(DeployToRevit)' != 'false'">
+    <PropertyGroup>
+      <PluginsDir>$(AppData)\Autodesk\ApplicationPlugins\DetalhaBIM.bundle\</PluginsDir>
+      <OldAddinsDir>$(AppData)\Autodesk\Revit\Addins\$(RevitVersion)\</OldAddinsDir>
     </PropertyGroup>
     <ItemGroup>
-      <DeployFiles Include="$(TargetDir)DetalhaBIM.dll;$(TargetDir)DetalhaBIM.pdb" />
+      <BundleFiles Include="$(TargetDir)DetalhaBIM.bundle\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="$(TargetDir)DetalhaBIM.addin" DestinationFolder="$(RevitAddinsDir)" ContinueOnError="true" />
-    <Copy SourceFiles="@(DeployFiles)" DestinationFolder="$(RevitAddinsDir)\DetalhaBIM" ContinueOnError="true" />
-    <Message Importance="high" Text="DetalhaBIM copiado para $(RevitAddinsDir)" />
+    <Delete Files="$(OldAddinsDir)DetalhaBIM.addin" ContinueOnError="true" />
+    <RemoveDir Directories="$(OldAddinsDir)DetalhaBIM" ContinueOnError="true" />
+    <Copy SourceFiles="@(BundleFiles)" DestinationFiles="@(BundleFiles->'$(PluginsDir)%(RecursiveDir)%(Filename)%(Extension)')" ContinueOnError="true" />
+    <Message Importance="high" Text="DetalhaBIM instalado em $(PluginsDir)" />
   </Target>
 
 </Project>

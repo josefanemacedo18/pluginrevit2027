@@ -22,6 +22,13 @@ namespace DetalhaBIM.UI
             var stack = new StackPanel();
             stack.Children.Add(new TextBlock
             {
+                Text = "Instalado em: " + System.IO.Path.GetDirectoryName(typeof(App).Assembly.Location),
+                Margin = new Thickness(0, 8, 0, 0),
+                FontSize = 11.5,
+                Foreground = Brushes.Gray,
+            });
+            stack.Children.Add(new TextBlock
+            {
                 Text = "Dica: passe o mouse sobre qualquer botão da aba DetalhaBIM para ver a descrição completa, ou pressione F1 para abrir o manual.",
                 Margin = new Thickness(0, 8, 0, 4),
                 Foreground = Brushes.DimGray,

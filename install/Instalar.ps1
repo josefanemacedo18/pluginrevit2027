@@ -1,52 +1,39 @@
 ﻿<#
-  Instala o DetalhaBIM no Revit 2027 (somente para o usuário atual, sem precisar de administrador).
-  Uso:  clique com o botão direito > "Executar com o PowerShell"  (ou use Instalar.bat)
+  Instala o DetalhaBIM (pacote .bundle) para o usuário atual — uso opcional, para quem compila
+  a partir do código-fonte. Usuários finais: basta copiar a pasta DetalhaBIM.bundle
+  (veja COMO-INSTALAR.txt); nenhum script é necessário.
 #>
 param([string]$RevitVersion = "2027")
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-function Find-First([string[]]$paths) {
-    foreach ($p in $paths) { if ($p -and (Test-Path $p)) { return (Resolve-Path $p).Path } }
-    return $null
-}
+$bundle = @(
+    (Join-Path $here "DetalhaBIM.bundle"),
+    (Join-Path $here "..\src\DetalhaBIM\bin\Release\net10.0-windows\DetalhaBIM.bundle"),
+    (Join-Path $here "..\src\DetalhaBIM\bin\Debug\net10.0-windows\DetalhaBIM.bundle")
+) | Where-Object { Test-Path (Join-Path $_ "PackageContents.xml") } | Select-Object -First 1
 
-# Funciona tanto a partir do pacote baixado quanto a partir do código-fonte compilado.
-$dll = Find-First @(
-    (Join-Path $here "DetalhaBIM\DetalhaBIM.dll"),
-    (Join-Path $here "..\src\DetalhaBIM\bin\Release\net10.0-windows\DetalhaBIM.dll"),
-    (Join-Path $here "..\src\DetalhaBIM\bin\Debug\net10.0-windows\DetalhaBIM.dll")
-)
-$addin = Find-First @(
-    (Join-Path $here "DetalhaBIM.addin"),
-    (Join-Path $here "..\src\DetalhaBIM\DetalhaBIM.addin")
-)
-if (-not $dll -or -not $addin) {
-    Write-Host "DetalhaBIM.dll não encontrado. Compile antes com: dotnet build -c Release" -ForegroundColor Red
+if (-not $bundle) {
+    Write-Host "Pasta DetalhaBIM.bundle não encontrada. Compile antes com: dotnet build -c Release" -ForegroundColor Red
     exit 1
 }
-
 if (Get-Process -Name "Revit" -ErrorAction SilentlyContinue) {
     Write-Host "Feche o Revit antes de instalar/atualizar o DetalhaBIM." -ForegroundColor Yellow
     exit 1
 }
 
-$dest = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
-$pluginDir = Join-Path $dest "DetalhaBIM"
-New-Item -ItemType Directory -Force -Path $pluginDir | Out-Null
+$plugins = Join-Path $env:APPDATA "Autodesk\ApplicationPlugins"
+$dest = Join-Path $plugins "DetalhaBIM.bundle"
+New-Item -ItemType Directory -Force -Path $plugins | Out-Null
+if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+Copy-Item $bundle $dest -Recurse -Force
+Get-ChildItem $dest -Recurse -File | Unblock-File
 
-Copy-Item $addin $dest -Force
-Copy-Item $dll $pluginDir -Force
-$pdb = [IO.Path]::ChangeExtension($dll, ".pdb")
-if (Test-Path $pdb) { Copy-Item $pdb $pluginDir -Force }
-
-# Arquivos baixados da internet são bloqueados pelo Windows; o Revit não carrega DLL bloqueada.
-Get-ChildItem $pluginDir -Recurse | Unblock-File
-Unblock-File (Join-Path $dest "DetalhaBIM.addin")
+# Remove a instalação antiga (versão 1.0, em Addins\2027) para não carregar o plugin duas vezes.
+$old = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
+Remove-Item (Join-Path $old "DetalhaBIM.addin") -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $old "DetalhaBIM") -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "DetalhaBIM instalado com sucesso em:" -ForegroundColor Green
-Write-Host "  $dest"
-Write-Host ""
+Write-Host "DetalhaBIM instalado em: $dest" -ForegroundColor Green
 Write-Host "Abra o Revit $RevitVersion e escolha 'Sempre carregar' na mensagem de segurança."
-Write-Host "A aba 'DetalhaBIM' aparecerá na faixa de opções."
