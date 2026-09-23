@@ -4,6 +4,24 @@
 
 A instalação é só copiar uma pasta. Nada precisa ser executado.
 
+0) ANTES DE TUDO: DESLIGUE O "CONTROLE DE APLICATIVO INTELIGENTE"
+   O DetalhaBIM ainda não tem assinatura digital. Com esse recurso do Windows 11
+   ligado, o Windows impede o Revit de carregar o plugin (a aba não aparece e o
+   bloqueio fica registrado em Segurança do Windows > Histórico de proteção).
+   O Windows não oferece "Permitir" nem exceção para esse tipo de bloqueio.
+
+   - Clique em Iniciar e digite:  Controle de Aplicativo Inteligente
+     (ou: Segurança do Windows > Controle de aplicativos e do navegador >
+      Configurações do Controle de Aplicativo Inteligente)
+   - Selecione "Desativado" e confirme.
+   - Evite a opção "Avaliação": nela o Windows pode voltar a ligar o
+     recurso sozinho depois, e o plugin volta a ser bloqueado.
+
+   O Microsoft Defender Antivírus continua protegendo o computador. Com a
+   atualização de abril de 2026 do Windows 11 (KB5083769 ou mais recente), dá
+   para religar o recurso depois pela mesma tela (o plugin então para de
+   carregar). Em versões anteriores, desligar era definitivo.
+
 1) Feche o Revit.
 
 2) Extraia este arquivo .zip (clique com o botão direito > "Extrair tudo...").

@@ -46,6 +46,9 @@ diálogos que **lembram as últimas opções escolhidas**. Os padrões do escrit
 O DetalhaBIM usa o **formato oficial de pacote da Autodesk** (`.bundle`). Para instalar, basta
 **copiar uma pasta**: não há instalador nem script para executar.
 
+0. **Desligue o Controle de Aplicativo Inteligente do Windows 11.** O plugin ainda não tem assinatura
+   digital, e com esse recurso ligado o Windows impede o Revit de carregar a DLL. Veja a seção
+   [Controle de Aplicativo Inteligente](#controle-de-aplicativo-inteligente-smart-app-control-do-windows-11).
 1. Baixe o pacote **DetalhaBIM-Revit2027**. Ele fica em **Actions → Build DetalhaBIM**, na execução mais
    recente, ou em **Releases**, quando houver.
 2. Feche o Revit e extraia o `.zip`.
@@ -79,8 +82,10 @@ O Windows **não permite abrir exceção** para um arquivo específico.
 Quando há bloqueio, o Revit abre sem a aba DetalhaBIM ou mostra uma mensagem dizendo que "uma política de
 Controle de Aplicativo bloqueou este arquivo". Há duas soluções:
 
-1. **Desativar o recurso:** vá em *Segurança do Windows → Controle de aplicativos e do navegador →
-   Configurações do Controle de Aplicativo Inteligente → Desativado*. O Microsoft Defender Antivírus
+1. **Desativar o recurso:** clique em Iniciar e digite *Controle de Aplicativo Inteligente* (ou vá em
+   *Segurança do Windows → Controle de aplicativos e do navegador → Configurações do Controle de Aplicativo
+   Inteligente*) e escolha **Desativado**. Evite *Avaliação*, porque nesse modo o Windows pode religar o
+   recurso sozinho. O Microsoft Defender Antivírus
    continua ativo. A partir da atualização de abril de 2026 do Windows 11 (KB5083769), o recurso pode ser
    religado depois pela mesma tela. Nas versões anteriores, desligar era definitivo.
 2. **Assinar o plugin** com um certificado de assinatura de código (veja abaixo). Com a assinatura, o
