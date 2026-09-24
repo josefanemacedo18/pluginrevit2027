@@ -13,6 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -20,23 +21,63 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Compilar
-        run: dotnet build src/DetalhaBIM/DetalhaBIM.csproj -c Release -p:DeployToRevit=false
+      - name: Ler versão do projeto
+        id: versao
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path src/DetalhaBIM/DetalhaBIM.csproj -Pattern '<Version>(.+)</Version>').Matches[0].Groups[1].Value
+          "versao=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Versão: $v"
+
+      - name: Compilar as ferramentas de teste
+        run: |
+          dotnet build tests/Verificador -c Release
+          dotnet build tests/TesteInterface -c Release
+
+      - name: Impressão digital do código-fonte
+        id: hash
+        shell: pwsh
+        run: |
+          $h = dotnet tests/Verificador/bin/Release/net10.0/Verificador.dll --hash-fontes src/DetalhaBIM
+          "hash=$h" >> $env:GITHUB_OUTPUT
+          Write-Host "Impressão digital: $h"
+
+      - name: Compilar o plugin
+        run: dotnet build src/DetalhaBIM/DetalhaBIM.csproj -c Release -p:DeployToRevit=false -p:ContinuousIntegrationBuild=true -p:SourceHash=${{ steps.hash.outputs.hash }}
+
+      - name: Verificar a compilação (simula o carregamento pelo Revit)
+        run: dotnet tests/Verificador/bin/Release/net10.0/Verificador.dll --pasta src/DetalhaBIM/bin/Release/net10.0-windows/Pacote --versao ${{ steps.versao.outputs.versao }} --catalogo src/DetalhaBIM/Ribbon/ToolCatalog.cs --fontes src/DetalhaBIM
+
+      - name: Verificar a pasta INSTALAR do repositório (a que o usuário baixa)
+        shell: pwsh
+        run: |
+          $arquivos = (Get-ChildItem INSTALAR -File | Select-Object -ExpandProperty Name | Sort-Object) -join ','
+          if ($arquivos -ne 'DetalhaBIM.addin,DetalhaBIM.dll') { throw "INSTALAR deve conter só DetalhaBIM.addin e DetalhaBIM.dll (tem: $arquivos)" }
+          if ((Get-Content INSTALAR/DetalhaBIM.addin -Raw) -ne (Get-Content src/DetalhaBIM/DetalhaBIM.addin -Raw)) { throw "INSTALAR/DetalhaBIM.addin difere de src/DetalhaBIM/DetalhaBIM.addin" }
+          dotnet tests/Verificador/bin/Release/net10.0/Verificador.dll --pasta INSTALAR --versao ${{ steps.versao.outputs.versao }} --catalogo src/DetalhaBIM/Ribbon/ToolCatalog.cs --fontes src/DetalhaBIM
+          if ($LASTEXITCODE -ne 0) { throw "A pasta INSTALAR não passou na verificação" }
+
+      - name: Testar a interface no Windows (ícones, tema e janelas)
+        run: tests/TesteInterface/bin/Release/net10.0-windows/TesteInterface.exe src/DetalhaBIM/Ribbon/ToolCatalog.cs
 
       - name: Montar pacote de instalação
         shell: pwsh
         run: |
-          # Pacote para o usuário final: somente arquivos para copiar + instruções (nenhum
-          # script/executável, para não ser bloqueado pelo Controle de Aplicativo Inteligente).
           $out = "dist/DetalhaBIM-Revit2027"
-          $copiar = "$out/COPIAR PARA Addins 2027"
-          New-Item -ItemType Directory -Force $copiar | Out-Null
-          Copy-Item src/DetalhaBIM/bin/Release/net10.0-windows/Pacote/* $copiar -Recurse
-          Copy-Item install/COMO-INSTALAR.txt "$out/"
-          Copy-Item README.md "$out/LEIA-ME.md"
+          New-Item -ItemType Directory -Force "$out/INSTALAR" | Out-Null
+          Copy-Item INSTALAR/DetalhaBIM.addin, INSTALAR/DetalhaBIM.dll "$out/INSTALAR/"
+          Copy-Item docs/COMO-INSTALAR.txt "$out/"
           Copy-Item docs/MANUAL.md "$out/MANUAL.md"
-          Get-ChildItem $out -Recurse | Select-Object -ExpandProperty FullName
           Compress-Archive -Path "$out/*" -DestinationPath "dist/DetalhaBIM-Revit2027.zip" -Force
+
+      - name: Verificar o ZIP final (extrair e checar como o usuário faria)
+        shell: pwsh
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP "zip-teste"
+          Expand-Archive dist/DetalhaBIM-Revit2027.zip -DestinationPath $tmp -Force
+          Get-ChildItem $tmp -Recurse | Select-Object -ExpandProperty FullName
+          dotnet tests/Verificador/bin/Release/net10.0/Verificador.dll --pasta "$tmp/INSTALAR" --versao ${{ steps.versao.outputs.versao }} --fontes src/DetalhaBIM
+          if ($LASTEXITCODE -ne 0) { throw "O ZIP final não passou na verificação" }
 
       - name: Publicar artefato
         uses: actions/upload-artifact@v4
@@ -48,4 +89,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: DetalhaBIM ${{ steps.versao.outputs.versao }} para Revit 2027
           files: dist/DetalhaBIM-Revit2027.zip
+          body: |
+            ## Como instalar
+            1. Baixe **DetalhaBIM-Revit2027.zip** (abaixo, em *Assets*).
+            2. Desligue o **Controle de Aplicativo Inteligente** do Windows 11 (Iniciar → digite o nome → Desativado) e reinicie o computador.
+            3. Extraia o ZIP e copie os **2 arquivos** da pasta `INSTALAR` (`DetalhaBIM.addin` e `DetalhaBIM.dll`) para `%AppData%\Autodesk\Revit\Addins\2027`.
+            4. Abra o Revit 2027 e escolha **Sempre carregar**.
+
+            Passo a passo completo e solução de problemas: `COMO-INSTALAR.txt` (dentro do ZIP).

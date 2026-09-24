@@ -1,13 +1,13 @@
 ﻿<#
   Instala o DetalhaBIM para o usuário atual — uso opcional, para quem compila a partir do
-  código-fonte. Usuários finais: basta copiar os arquivos (veja COMO-INSTALAR.txt).
+  código-fonte. Usuários finais: basta copiar os 2 arquivos da pasta INSTALAR (veja docs/COMO-INSTALAR.txt).
 #>
 param([string]$RevitVersion = "2027")
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $pacote = @(
-    (Join-Path $here "COPIAR PARA Addins 2027"),
+    (Join-Path $here "..\INSTALAR"),
     (Join-Path $here "..\src\DetalhaBIM\bin\Release\net10.0-windows\Pacote"),
     (Join-Path $here "..\src\DetalhaBIM\bin\Debug\net10.0-windows\Pacote")
 ) | Where-Object { Test-Path (Join-Path $_ "DetalhaBIM.addin") } | Select-Object -First 1

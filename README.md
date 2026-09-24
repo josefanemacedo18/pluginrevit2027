@@ -9,6 +9,27 @@ Todas as ferramentas ficam na aba **DetalhaBIM** da faixa de opções, estão em
 diálogos que **lembram as últimas opções escolhidas**. Os padrões do escritório ficam em
 **Configurações**, e o plugin se adapta a qualquer template.
 
+## ⬇️ Como instalar (5 minutos)
+
+1. **Baixe o plugin:** [**DetalhaBIM-Revit2027.zip**](https://github.com/josefanemacedo18/pluginrevit2027/releases/latest/download/DetalhaBIM-Revit2027.zip).
+   Se o navegador avisar que o arquivo "não é baixado com frequência", escolha **Manter**. Outra opção é
+   baixar os 2 arquivos direto da pasta [`INSTALAR`](INSTALAR) deste repositório.
+2. **Desligue o Controle de Aplicativo Inteligente do Windows 11:** clique em Iniciar, digite
+   *Controle de Aplicativo Inteligente*, escolha **Desativado** e reinicie o computador. É obrigatório,
+   porque o plugin não tem assinatura digital paga.
+3. **Feche o Revit.** Clique com o botão direito no ZIP e vá em **Propriedades**. Se houver a caixa
+   **Desbloquear**, marque-a e dê OK. Depois clique com o botão direito de novo e escolha **Extrair tudo**.
+4. **Copie os 2 arquivos** da pasta `INSTALAR`, `DetalhaBIM.addin` e `DetalhaBIM.dll`, para esta pasta
+   (cole o endereço na barra do Explorador de Arquivos):
+   ```
+   %AppData%\Autodesk\Revit\Addins\2027
+   ```
+   Os dois precisam ficar **lado a lado**, na mesma pasta. Se sobraram restos de tentativas anteriores
+   (a pasta `DetalhaBIM` ali dentro, ou `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle`), apague-os.
+5. **Abra o Revit 2027** e escolha **"Sempre carregar"**. A aba **DetalhaBIM** aparece na faixa de opções.
+
+Passo a passo detalhado e solução de problemas: [`docs/COMO-INSTALAR.txt`](docs/COMO-INSTALAR.txt).
+
 > Manual completo, ferramenta por ferramenta: [`docs/MANUAL.md`](docs/MANUAL.md)
 
 ---
@@ -41,37 +62,19 @@ diálogos que **lembram as últimas opções escolhidas**. Os padrões do escrit
 
 ---
 
-## Instalação
+## Detalhes da instalação
 
-A instalação é só **copiar 2 arquivos**: não há instalador nem script para executar. O passo a passo
-completo, com diagnóstico, está no `COMO-INSTALAR.txt` que vem no pacote.
-
-0. **Desligue o Controle de Aplicativo Inteligente do Windows 11.** O plugin ainda não tem assinatura
-   digital, e com esse recurso ligado o Windows impede o Revit de carregar a DLL. Veja a seção
-   [Controle de Aplicativo Inteligente](#controle-de-aplicativo-inteligente-smart-app-control-do-windows-11).
-1. Baixe o pacote **DetalhaBIM-Revit2027**. Ele fica em **Actions → Build DetalhaBIM**, na execução mais
-   recente, ou em **Releases**, quando houver.
-2. Feche o Revit e extraia o `.zip`.
-3. Abra a pasta **`COPIAR PARA Addins 2027`** e copie os 2 arquivos que estão nela: `DetalhaBIM.addin`
-   e `DetalhaBIM.dll`.
-4. Cole esses 2 arquivos, lado a lado, em `%AppData%\Autodesk\Revit\Addins\2027`. Para chegar lá, cole esse endereço na
-   barra do Explorador de Arquivos.
-5. Abra o Revit 2027 e escolha **"Sempre carregar"**. A aba **DetalhaBIM** aparece na faixa de opções.
-
-```
-%AppData%\Autodesk\Revit\Addins\2027\
-├── DetalhaBIM.addin
-└── DetalhaBIM.dll
-```
-
-- **Por que essa pasta:** no Revit 2027, a pasta de complementos do usuário é o único local que o Revit
+- **Por que essa pasta:** no Revit 2027, `%AppData%\Autodesk\Revit\Addins\2027` é o local que o Revit
   garante carregar para plugins sem assinatura digital. O Revit 2027 ignora `C:\ProgramData\...\Addins\2027`.
+- **Por que os 2 arquivos ficam juntos:** o `DetalhaBIM.addin` aponta para `DetalhaBIM.dll` na mesma pasta.
 - **Atualizar:** substitua os 2 arquivos, com o Revit fechado.
-- **Desinstalar:** apague `DetalhaBIM.addin` e `DetalhaBIM.dll`. As configurações em
-  `%AppData%\DetalhaBIM` são mantidas.
-- **Quem instalou versões anteriores** deve apagar, se existirem, a pasta
-  `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle` e a pasta `DetalhaBIM` dentro de
-  `%AppData%\Autodesk\Revit\Addins\2027`.
+- **Desinstalar:** apague `DetalhaBIM.addin` e `DetalhaBIM.dll`. As configurações em `%AppData%\DetalhaBIM`
+  são mantidas.
+- **Garantia de integridade:** a cada alteração, a compilação automática (GitHub Actions) roda em Windows e
+  verifica os arquivos da pasta `INSTALAR`, o ZIP e a interface.
+  - **O que é conferido:** se o manifesto é válido, se a DLL existe no caminho indicado, se a DLL foi
+    compilada exatamente do código atual (impressão digital), se usa a versão da API compatível com
+    qualquer atualização do Revit 2027, se os 23 comandos estão corretos, e os ícones e janelas.
 
 ### Controle de Aplicativo Inteligente (Smart App Control) do Windows 11
 
@@ -121,7 +124,7 @@ dotnet build -c Release     # gera src\DetalhaBIM\bin\Release\net10.0-windows\Pa
 
 Em **Debug** (`dotnet build`), o pacote é instalado automaticamente em
 `%AppData%\Autodesk\Revit\Addins\2027`. Para desativar, use `-p:DeployToRevit=false`. Os scripts
-`install/Instalar.ps1` e `install/Desinstalar.ps1` fazem a mesma cópia e servem para quem compila o código.
+`ferramentas/Instalar.ps1` e `ferramentas/Desinstalar.ps1` fazem a mesma cópia e servem para quem compila o código.
 
 ---
 
@@ -149,6 +152,7 @@ Em **Debug** (`dotnet build`), o pacote é instalado automaticamente em
   são desenhados em tempo de execução. O pacote publicado tem só `DetalhaBIM.addin` e `DetalhaBIM.dll`.
 
 ```
+INSTALAR/                   Os 2 arquivos prontos para copiar em %AppData%\Autodesk\Revit\Addins\2027
 src/DetalhaBIM/
 ├── App.cs                  Ponto de entrada (IExternalApplication)
 ├── Ribbon/                 Aba, painéis, ícones vetoriais, disponibilidade e catálogo das ferramentas
@@ -156,7 +160,23 @@ src/DetalhaBIM/
 ├── Services/               Lógica reutilizável: cotas de ambiente e de fachada, vistas, elevações, etiquetas, pranchas
 ├── Commands/               Um comando por ferramenta (Cotas, Vistas, Documentacao, Organizacao, Modelagem, Geral)
 └── UI/                     Janelas WPF (diálogo de opções genérico, editor de níveis, limpeza de ambientes, configurações, ajuda)
+tests/
+├── Verificador/            Simula o carregamento pelo Revit (manifesto, caminho da DLL, classes, versão da API, impressão digital)
+└── TesteInterface/         Executa no Windows os ícones, o tema e todas as janelas
+ferramentas/                Scripts opcionais de instalação para quem compila o código
+docs/                       Manual e guia de instalação
 ```
+
+Para atualizar a pasta `INSTALAR` depois de alterar o código:
+
+```powershell
+$h = dotnet run --project tests/Verificador -- --hash-fontes src/DetalhaBIM
+dotnet build src/DetalhaBIM/DetalhaBIM.csproj -c Release -p:ContinuousIntegrationBuild=true -p:SourceHash=$h
+copy src\DetalhaBIM\bin\Release\net10.0-windows\Pacote\* INSTALAR\
+dotnet run --project tests/Verificador -- --pasta INSTALAR --fontes src/DetalhaBIM
+```
+
+A compilação automática recusa uma pasta `INSTALAR` que não corresponda ao código atual.
 
 Destaques da implementação:
 

@@ -35,6 +35,15 @@
   </ItemGroup>
 
   <!--
+    Impressão digital do código-fonte gravada na DLL (dotnet build -p:SourceHash=...). O verificador
+    (tests/Verificador) recalcula o valor a partir do repositório e garante que a DLL da pasta
+    INSTALAR foi compilada exatamente deste código.
+  -->
+  <ItemGroup Condition="'$(SourceHash)' != ''">
+    <AssemblyMetadata Include="SourceHash" Value="$(SourceHash)" />
+  </ItemGroup>
+
+  <!--
     Monta, na pasta de saída, o pacote pronto para copiar para a pasta de add-ins do usuário
     (%AppData%\Autodesk\Revit\Addins\2027) — o único local que o Revit 2027 garante carregar
     para plugins sem assinatura digital:

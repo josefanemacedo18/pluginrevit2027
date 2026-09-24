@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Teste de fumaça da interface (somente Windows): executa de verdade o código WPF do plugin
+    que não depende do Revit — ícones da faixa de opções (criados ao abrir o Revit), tema,
+    formulários e todas as janelas das ferramentas, que são abertas e fechadas automaticamente.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DetalhaBIM\DetalhaBIM.csproj" />
+  </ItemGroup>
+
+</Project>
