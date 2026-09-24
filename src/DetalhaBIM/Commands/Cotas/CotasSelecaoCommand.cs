@@ -32,7 +32,7 @@ namespace DetalhaBIM.Commands.Cotas
                 "Selecione paredes, eixos, pilares, portas, janelas ou planos de referência e clique onde a linha de cota deve passar. Uma única cadeia é criada com todos eles.",
                 Theme.Cotas, ctx.MainWindow, "Selecionar");
             FormBuilder f = dlg.Form;
-            f.Combo("tipo", "Tipo de cota", Choices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
+            f.Combo("tipo", "Tipo de cota", ProjectChoices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
             f.Radio("direcao", "Direção da cota", new[] { "Automática (perpendicular ao 1º elemento)", "Horizontal na vista", "Vertical na vista" }, 0);
             f.Radio("esquadrias", "Portas e janelas", new[] { "Cotar o eixo", "Cotar o vão (esquerda e direita)" }, 1);
             if (!dlg.Run()) return Result.Cancelled;

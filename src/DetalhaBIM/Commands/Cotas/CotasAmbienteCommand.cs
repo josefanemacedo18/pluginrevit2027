@@ -29,7 +29,7 @@ namespace DetalhaBIM.Commands.Cotas
             f.Section("Ambientes");
             f.Radio("escopo", null, Pick.RoomScopeOptions.Take(3).ToList(), 0);
             f.Section("Cotas");
-            f.Combo("tipo", "Tipo de cota", Choices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
+            f.Combo("tipo", "Tipo de cota", ProjectChoices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
             f.Check("horizontal", "Cota horizontal (largura do ambiente)", true);
             f.Check("vertical", "Cota vertical (profundidade do ambiente)", true);
             f.Check("aberturas", "Cotar vãos de portas e janelas ao longo das paredes", true);

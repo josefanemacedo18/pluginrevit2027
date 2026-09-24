@@ -106,14 +106,15 @@ namespace DetalhaBIM.TesteInterface
                     var img = (BitmapSource)Icons.Get(key, Theme.Cotas, size);
                     var px = new byte[size * size * 4];
                     img.CopyPixels(px, size * 4, 0);
-                    int brancos = 0, opacos = 0;
+                    // Formato BGRA: o fundo azul tem vermelho (R) baixo; o símbolo branco tem R alto.
+                    int simbolo = 0, opacos = 0;
                     for (int i = 0; i < px.Length; i += 4)
                     {
                         if (px[i + 3] > 200) opacos++;
-                        if (px[i] > 220 && px[i + 1] > 220 && px[i + 2] > 220 && px[i + 3] > 200) brancos++;
+                        if (px[i + 3] > 200 && px[i + 2] >= 150) simbolo++;
                     }
-                    Check(img.PixelWidth == size && opacos > size * size / 2 && brancos > size / 2,
-                        $"Ícone \"{key}\" {size}px renderizado (fundo {opacos} px, símbolo {brancos} px)");
+                    Check(img.PixelWidth == size && opacos > size * size / 2 && simbolo >= size,
+                        $"Ícone \"{key}\" {size}px legível (fundo {opacos} px, símbolo {simbolo} px, mínimo {size})");
                 }
             }
         }

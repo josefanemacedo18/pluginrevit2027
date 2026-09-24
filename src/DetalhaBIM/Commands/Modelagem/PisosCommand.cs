@@ -19,7 +19,7 @@ namespace DetalhaBIM.Commands.Modelagem
         {
             Document doc = ctx.Doc;
             ModelagemSettings ms = ctx.Settings.Modelagem;
-            List<string> types = Choices.Types<FloorType>(doc, false);
+            List<string> types = ProjectChoices.Types<FloorType>(doc, false);
             if (types.Count == 0) throw new UserMessageException("O projeto não possui tipos de piso.");
 
             var dlg = new OptionsDialog("pisos", Title,

@@ -71,11 +71,13 @@ namespace DetalhaBIM.Ribbon
 
                 if (glyph != null)
                 {
-                    double scale = size * 0.76 / 24.0;
+                    // Em 16 px o símbolo ocupa mais área e o traço é mais grosso para continuar legível.
+                    bool small = size < 24;
+                    double scale = size * (small ? 0.84 : 0.76) / 24.0;
                     double offset = (size - 24 * scale) / 2;
                     dc.PushTransform(new TranslateTransform(offset, offset));
                     dc.PushTransform(new ScaleTransform(scale, scale));
-                    var pen = new Pen(Brushes.White, size >= 32 ? 1.9 : 2.3)
+                    var pen = new Pen(Brushes.White, small ? 3.0 : 1.9)
                     {
                         StartLineCap = PenLineCap.Round,
                         EndLineCap = PenLineCap.Round,

@@ -36,9 +36,9 @@ namespace DetalhaBIM.Commands.Vistas
             f.Hint("Personalize nomes, modelos de vista, escalas e automações de cada planta em DetalhaBIM › Configurações.");
             f.Section("Opções");
             f.Check("pular", "Não recriar plantas que já existem (mesmo nome)", true);
-            f.Combo("tipo", "Tipo de cota (cotas automáticas)", Choices.DimensionTypes(doc), Choices.Or(s.Cotas.TipoCota, Choices.Default));
+            f.Combo("tipo", "Tipo de cota (cotas automáticas)", ProjectChoices.DimensionTypes(doc), Choices.Or(s.Cotas.TipoCota, Choices.Default));
             f.Check("prancha", "Criar uma prancha para cada planta", false);
-            f.Combo("carimbo", "Carimbo (folha)", Choices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false), s.Pranchas.Carimbo);
+            f.Combo("carimbo", "Carimbo (folha)", ProjectChoices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false), s.Pranchas.Carimbo);
             if (!dlg.Run()) return Result.Cancelled;
 
             List<Level> levels = f.Checked<Level>("niveis");

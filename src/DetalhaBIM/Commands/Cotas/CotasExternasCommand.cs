@@ -29,7 +29,7 @@ namespace DetalhaBIM.Commands.Cotas
             f.Check("esquerdo", "Esquerdo", true);
             f.Check("direito", "Direito", true);
             f.Section("Linhas de cota");
-            f.Combo("tipo", "Tipo de cota", Choices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
+            f.Combo("tipo", "Tipo de cota", ProjectChoices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
             f.Check("vaos", "1ª linha: vãos de portas e janelas", true);
             f.Check("paredes", "2ª linha: paredes internas", true);
             f.Check("total", "3ª linha: cota total", true);

@@ -27,7 +27,7 @@ namespace DetalhaBIM.Commands.Cotas
             f.Section("Ambientes");
             f.Radio("escopo", null, Pick.RoomScopeOptions.Take(3).ToList(), 2);
             f.Section("Cota de nível");
-            f.Combo("tipo", "Tipo de cota de nível", Choices.SpotTypes(doc), Choices.Or(ctx.Settings.Cotas.TipoCotaNivel, Choices.Default));
+            f.Combo("tipo", "Tipo de cota de nível", ProjectChoices.SpotTypes(doc), Choices.Or(ctx.Settings.Cotas.TipoCotaNivel, Choices.Default));
             f.Number("deslocamento", "Deslocamento abaixo do centro do ambiente", 10, "mm na folha",
                 "Afasta a cota de nível da etiqueta do ambiente.");
             f.Check("pular", "Ignorar ambientes que já possuem cota de nível", true);

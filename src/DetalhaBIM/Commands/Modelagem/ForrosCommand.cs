@@ -20,7 +20,7 @@ namespace DetalhaBIM.Commands.Modelagem
         {
             Document doc = ctx.Doc;
             ModelagemSettings ms = ctx.Settings.Modelagem;
-            List<string> types = Choices.Types<CeilingType>(doc, false);
+            List<string> types = ProjectChoices.Types<CeilingType>(doc, false);
             if (types.Count == 0) throw new UserMessageException("O projeto não possui tipos de forro.");
 
             var dlg = new OptionsDialog("forros", Title,

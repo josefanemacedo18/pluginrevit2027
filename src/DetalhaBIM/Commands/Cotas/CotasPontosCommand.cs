@@ -29,7 +29,7 @@ namespace DetalhaBIM.Commands.Cotas
                 "Clique no ponto inicial e no ponto final: tudo o que a linha atravessar (paredes, pilares e eixos) é cotado em uma única cadeia. Continue clicando; ESC encerra.",
                 Theme.Cotas, ctx.MainWindow, "Começar");
             FormBuilder f = dlg.Form;
-            f.Combo("tipo", "Tipo de cota", Choices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
+            f.Combo("tipo", "Tipo de cota", ProjectChoices.DimensionTypes(doc), Choices.Or(s.TipoCota, Choices.Default));
             f.Check("orto", "Forçar direção ortogonal (alinhada às paredes do projeto)", true);
             f.Check("eixos", "Incluir eixos (grids) atravessados", true);
             f.Check("pilares", "Incluir pilares atravessados", true);

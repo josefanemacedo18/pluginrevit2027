@@ -42,7 +42,7 @@ namespace DetalhaBIM.Commands.Documentacao
             foreach (var c in Categories)
             {
                 f.Check(c.key, c.label, c.on);
-                f.Combo(c.key + "Tipo", "   Etiqueta", Choices.Symbols(doc, c.tag), Choices.Default);
+                f.Combo(c.key + "Tipo", "   Etiqueta", ProjectChoices.Symbols(doc, c.tag), Choices.Default);
             }
             f.Section("Opções");
             f.Check("pular", "Ignorar elementos que já possuem etiqueta na vista", true);

@@ -34,13 +34,13 @@ namespace DetalhaBIM.Commands.Vistas
             f.Radio("lado", "Vista pelo lado", new[] { "Externo (face da família)", "Interno" }, 0);
             f.Section("Vista");
             f.Combo("escala", "Escala", Choices.Scales, Choices.Scale(s.Vistas.EscalaEsquadria), true);
-            f.Combo("modelo", "Modelo de vista", Choices.Templates(doc, ViewType.Elevation, ViewType.Section), Choices.Or(s.Vistas.ModeloEsquadria, Choices.None));
+            f.Combo("modelo", "Modelo de vista", ProjectChoices.Templates(doc, ViewType.Elevation, ViewType.Section), Choices.Or(s.Vistas.ModeloEsquadria, Choices.None));
             f.Check("cotar", "Cotar largura, altura e peitoril", true);
-            f.Combo("tipo", "Tipo de cota", Choices.DimensionTypes(doc), Choices.Or(s.Cotas.TipoCota, Choices.Default));
+            f.Combo("tipo", "Tipo de cota", ProjectChoices.DimensionTypes(doc), Choices.Or(s.Cotas.TipoCota, Choices.Default));
             f.Check("ocultar", "Ocultar os marcadores de elevação nas plantas", true);
             f.Section("Prancha");
             f.Check("prancha", "Montar prancha(s) com todas as vistas de esquadrias", true);
-            f.Combo("carimbo", "Carimbo (folha)", Choices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false), s.Pranchas.Carimbo);
+            f.Combo("carimbo", "Carimbo (folha)", ProjectChoices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false), s.Pranchas.Carimbo);
             if (!dlg.Run()) return Result.Cancelled;
 
             var cats = new List<BuiltInCategory>();

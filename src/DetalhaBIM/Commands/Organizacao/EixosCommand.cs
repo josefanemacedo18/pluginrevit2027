@@ -48,9 +48,9 @@ namespace DetalhaBIM.Commands.Organizacao
             f.Check("reaproveitar", "Reaproveitar eixos existentes coincidentes", true);
             f.Section("Plantas de eixos");
             f.Checklist("niveis", "Criar \"PLANTA DE EIXOS\" para os níveis", Q.Levels(doc).Select(l => new CheckItem(l.Name, l, false)), 120);
-            f.Combo("modelo", "Modelo de vista", Choices.Templates(doc, ViewType.FloorPlan), Choices.None);
+            f.Combo("modelo", "Modelo de vista", ProjectChoices.Templates(doc, ViewType.FloorPlan), Choices.None);
             f.Check("cotarAtiva", "Cotar os eixos também na vista ativa", true);
-            f.Combo("tipo", "Tipo de cota", Choices.DimensionTypes(doc), Choices.Or(ctx.Settings.Cotas.TipoCota, Choices.Default));
+            f.Combo("tipo", "Tipo de cota", ProjectChoices.DimensionTypes(doc), Choices.Or(ctx.Settings.Cotas.TipoCota, Choices.Default));
             if (!dlg.Run()) return Result.Cancelled;
 
             List<Wall> walls = f.Index("origem") == 1

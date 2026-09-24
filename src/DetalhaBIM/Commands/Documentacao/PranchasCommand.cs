@@ -47,7 +47,7 @@ namespace DetalhaBIM.Commands.Documentacao
             f.Radio("modo", null, new[] { "Uma vista por prancha (nome da prancha = nome da vista)", "Agrupar as vistas em pranchas com arranjo automático" }, 0);
             f.Text("nome", "Nome das pranchas (modo agrupado)", "DETALHAMENTO");
             f.Section("Prancha");
-            f.Combo("carimbo", "Carimbo (folha)", Choices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false), ps.Carimbo);
+            f.Combo("carimbo", "Carimbo (folha)", ProjectChoices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false), ps.Carimbo);
             f.Text("prefixo", "Prefixo da numeração", ps.PrefixoNumero);
             f.Number("digitos", "Dígitos da numeração", ps.Digitos);
             f.Number("faixa", "Faixa do carimbo à direita", ps.FaixaCarimboDireitaMm, "mm");

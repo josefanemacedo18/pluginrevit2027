@@ -36,10 +36,10 @@ namespace DetalhaBIM.Commands.Vistas
             f.Check("elevacoes", "Elevações internas (uma para cada parede)", true);
             f.Check("iso", "Isométrico 3D com caixa de corte", true);
             f.Section("Modelos de vista (View Templates)");
-            f.Combo("mPlanta", "Planta", Choices.Templates(doc, ViewType.FloorPlan), Choices.Or(vs.ModeloPlanta, Choices.None));
-            f.Combo("mForro", "Forro", Choices.Templates(doc, ViewType.CeilingPlan), Choices.Or(vs.ModeloForro, Choices.None));
-            f.Combo("mElev", "Elevações", Choices.Templates(doc, ViewType.Elevation, ViewType.Section), Choices.Or(vs.ModeloElevacao, Choices.None));
-            f.Combo("m3d", "Isométrico", Choices.Templates(doc, ViewType.ThreeD), Choices.Or(vs.Modelo3D, Choices.None));
+            f.Combo("mPlanta", "Planta", ProjectChoices.Templates(doc, ViewType.FloorPlan), Choices.Or(vs.ModeloPlanta, Choices.None));
+            f.Combo("mForro", "Forro", ProjectChoices.Templates(doc, ViewType.CeilingPlan), Choices.Or(vs.ModeloForro, Choices.None));
+            f.Combo("mElev", "Elevações", ProjectChoices.Templates(doc, ViewType.Elevation, ViewType.Section), Choices.Or(vs.ModeloElevacao, Choices.None));
+            f.Combo("m3d", "Isométrico", ProjectChoices.Templates(doc, ViewType.ThreeD), Choices.Or(vs.Modelo3D, Choices.None));
             f.Section("Escalas");
             f.Combo("ePlanta", "Plantas", Choices.Scales, Choices.Scale(vs.EscalaPlanta), true);
             f.Combo("eElev", "Elevações", Choices.Scales, Choices.Scale(vs.EscalaElevacao), true);
@@ -51,7 +51,7 @@ namespace DetalhaBIM.Commands.Vistas
             f.Check("separadores", "Não criar elevação em linhas separadoras de ambiente", true);
             f.Section("Pranchas");
             f.Check("prancha", "Montar uma prancha por ambiente com as vistas criadas", false);
-            f.Combo("carimbo", "Carimbo (folha)", Choices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false),
+            f.Combo("carimbo", "Carimbo (folha)", ProjectChoices.Symbols(doc, BuiltInCategory.OST_TitleBlocks, false),
                 ctx.Settings.Pranchas.Carimbo);
             if (!dlg.Run()) return Result.Cancelled;
 

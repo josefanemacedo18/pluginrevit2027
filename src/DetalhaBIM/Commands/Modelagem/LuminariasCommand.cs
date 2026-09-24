@@ -24,7 +24,7 @@ namespace DetalhaBIM.Commands.Modelagem
         {
             Document doc = ctx.Doc;
             ModelagemSettings ms = ctx.Settings.Modelagem;
-            List<string> types = Choices.Symbols(doc, BuiltInCategory.OST_LightingFixtures, false);
+            List<string> types = ProjectChoices.Symbols(doc, BuiltInCategory.OST_LightingFixtures, false);
             if (types.Count == 0) throw new UserMessageException("Carregue ao menos uma família de luminária no projeto.");
 
             var dlg = new OptionsDialog("luminarias", Title,
