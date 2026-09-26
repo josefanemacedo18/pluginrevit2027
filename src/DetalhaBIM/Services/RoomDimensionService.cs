@@ -58,7 +58,11 @@ namespace DetalhaBIM.Services
         {
             int created = 0;
             List<SegRef> segs = SegmentReferences(room);
-            if (segs.Count == 0)
+            // Trechos curvos do contorno: as cadeias precisam chegar nas pontas e no ponto extremo do arco.
+            List<Curve> curved = RoomGeo.Segments(room).SelectMany(l => l)
+                .Where(b => b.ElementId != ElementId.InvalidElementId || b.LinkElementId != ElementId.InvalidElementId)
+                .Select(b => b.GetCurve()).Where(c => c != null && !(c is Line) && c.Length > Conv.Cm(5)).ToList();
+            if (segs.Count == 0 && curved.Count == 0)
             {
                 _report.Warn($"Ambiente {RoomGeo.Label(room)}: contorno sem paredes cotáveis.");
                 return 0;
@@ -78,7 +82,17 @@ namespace DetalhaBIM.Services
                 var refs = segs.Where(s => Geo.IsPerpendicular(s.Dir, d))
                     .Select(s => new RefPos(s.Reference, Geo.Mid(s.Line).DotProduct(d), s.Element))
                     .ToList();
-                if (refs.Count < 2) continue;
+                if (curved.Count > 0 && RefLines.Supported(_view))
+                {
+                    _lines ??= new RefLines(_doc, _view);
+                    _lines.Keep();
+                    foreach (Curve c in curved) refs.AddRange(CurvedWallService.KeyRefs(_lines, c, d, z));
+                }
+                if (refs.Count < 2)
+                {
+                    _lines?.DeleteUnused(null);
+                    continue;
+                }
 
                 XYZ through = center;
                 if (!o.AtCenter)
@@ -87,7 +101,9 @@ namespace DetalhaBIM.Services
                     through = center + e * (minE + o.WallOffset - center.DotProduct(e));
                 }
 
-                if (_builder.Create(refs, d, through) != null) created++;
+                Dimension dim = _builder.Create(refs, d, through);
+                _lines?.DeleteUnused(dim == null ? null : new[] { dim });
+                if (dim != null) created++;
                 else _report.Warn($"Ambiente {RoomGeo.Label(room)}: não foi possível criar a cota {(d.IsAlmostEqualTo(frame.X) ? "horizontal" : "vertical")}.");
             }
 
@@ -109,16 +125,23 @@ namespace DetalhaBIM.Services
                 if (Geo.IsParallel(s.Dir, frame.X, 0.9995) || Geo.IsParallel(s.Dir, frame.Y, 0.9995)) continue;
                 if (s.Line.Length < Conv.Cm(10)) continue;
                 _lines ??= new RefLines(_doc, _view);
+                _lines.Keep();
                 XYZ t = s.Dir;
                 XYZ a = Geo.WithZ(s.Line.GetEndPoint(0), z), b = Geo.WithZ(s.Line.GetEndPoint(1), z);
                 RefPos ra = _lines.Across(a, t, a.DotProduct(t), 1);
                 RefPos rb = _lines.Across(b, t, b.DotProduct(t), 1);
-                if (ra == null || rb == null) continue;
+                if (ra == null || rb == null)
+                {
+                    _lines.DeleteUnused(null);
+                    continue;
+                }
 
                 XYZ n = Geo.LeftNormal(t);
                 XYZ mid = Geo.Mid(s.Line);
                 if (!RoomGeo.Contains(room, mid + n * Conv.Cm(20))) n = n.Negate();
-                if (_builder.Create(new[] { ra, rb }, t, Geo.WithZ(mid, z) + n * offset) != null) created++;
+                Dimension dim = _builder.Create(new[] { ra, rb }, t, Geo.WithZ(mid, z) + n * offset);
+                _lines.DeleteUnused(dim == null ? null : new[] { dim });
+                if (dim != null) created++;
                 else _report.Warn($"Ambiente {RoomGeo.Label(room)}: não foi possível cotar uma parede inclinada.");
             }
             return created;

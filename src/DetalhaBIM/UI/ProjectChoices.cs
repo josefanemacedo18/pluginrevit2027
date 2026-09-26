@@ -35,9 +35,6 @@ namespace DetalhaBIM.UI
         public static List<string> SweepTypes(Document doc) =>
             Q.SweepTypes(doc).Select(Q.Label).ToList();
 
-        public static List<string> LineStyles(Document doc) =>
-            RefLines.LineStyles(doc).Select(g => g.Name).ToList();
-
         public static List<string> Types<T>(Document doc, bool withDefault = true) where T : ElementType
         {
             IEnumerable<string> labels = Q.All<T>(doc).Select(Q.Label).OrderBy(n => n);

@@ -57,7 +57,7 @@ namespace DetalhaBIM.Ribbon
                 Panel = "Cotas", Id = "CotasAmbiente", Text = "Cotas por\nAmbiente", Command = typeof(CotasAmbienteCommand), Icon = "cotas-ambiente",
                 Availability = typeof(PlanViewAvailability),
                 Tooltip = "Cotas internas automáticas dos ambientes selecionados.",
-                Description = "Cria, para cada ambiente, uma cadeia de cotas horizontal e outra vertical, face a face das paredes (incluindo pilares e recortes), e opcionalmente cadeias com os vãos de portas e janelas de cada parede. Funciona com ambientes selecionados, da vista ou do nível.",
+                Description = "Cria, para cada ambiente, uma cadeia de cotas horizontal e outra vertical, face a face das paredes (incluindo pilares, recortes e as pontas e extremos de paredes curvas), cotas alinhadas nas paredes inclinadas e, opcionalmente, cadeias com os vãos de portas e janelas de cada parede.",
             },
             new ToolDef
             {
@@ -77,15 +77,15 @@ namespace DetalhaBIM.Ribbon
             {
                 Panel = "Cotas", Id = "CotaAlinhada", Text = "Cota\nAlinhada", Command = typeof(CotaAlinhadaCommand), Icon = "cota-alinhada",
                 Availability = typeof(PlanViewAvailability),
-                Tooltip = "Cota paralela à parede em qualquer inclinação.",
-                Description = "Clique em uma parede (inclinada, chanfrada ou em planta rotacionada) e no lado a cotar: são criadas cotas alinhadas com a face — vãos, paredes que chegam e comprimento total —, medindo até os cantos reais mesmo quando as pontas são chanfradas. No modo livre, mede entre dois pontos quaisquer paralelamente a uma parede, eixo ou linha.",
+                Tooltip = "Cota paralela à parede em qualquer inclinação; paredes curvas: raio, arco e corda.",
+                Description = "Clique em uma parede (inclinada, chanfrada ou em planta rotacionada) e no lado a cotar: são criadas cotas alinhadas com a face — vãos, paredes que chegam e comprimento total —, medindo até os cantos reais mesmo quando as pontas são chanfradas. Em paredes curvas: raio, comprimento do arco e corda. No modo livre, mede entre dois pontos quaisquer paralelamente a uma parede, eixo ou linha.",
             },
             new ToolDef
             {
-                Panel = "Cotas", Id = "CotarObjetos", Text = "Cotar\nObjetos 3D", Command = typeof(CotarObjetosCommand), Icon = "cotas-3d",
+                Panel = "Cotas", Id = "CotarObjetos", Text = "Cotar\nComponentes", Command = typeof(CotarObjetosCommand), Icon = "cotas-3d",
                 Availability = typeof(DimensionViewAvailability),
-                Tooltip = "Cota paredes e qualquer família — inclusive em vistas isométricas 3D.",
-                Description = "Selecione paredes, móveis, marcenaria, louças ou qualquer família: largura, profundidade e altura são cotadas na vista ativa — vistas 3D isométricas (a vista é travada automaticamente), plantas, cortes e elevações. Paredes recebem comprimento, espessura, altura e os vãos.",
+                Tooltip = "Cota componentes (mobiliário, marcenaria, blocos...) e paredes — inclusive em vista isométrica 3D.",
+                Description = "Selecione componentes (famílias inseridas pelo comando Componente: mobiliário, marcenaria, blocos, louças, equipamentos) ou paredes: largura, profundidade e altura são cotadas na vista ativa — vistas 3D isométricas (a vista é travada automaticamente), plantas, cortes e elevações. Usa os planos de referência e as faces da família; se ela não tiver nada cotável, mede pelas extremidades com linhas auxiliares invisíveis. Cada cota é conferida antes de ficar no desenho.",
             },
             new ToolDef
             {
@@ -152,14 +152,14 @@ namespace DetalhaBIM.Ribbon
             {
                 Panel = "Interiores", Id = "PaginacaoPiso", Text = "Paginação\nde Piso", Command = typeof(PaginacaoPisoCommand), Icon = "paginacao",
                 Availability = typeof(PlanViewAvailability),
-                Tooltip = "Juntas do piso desenhadas e quantidade de peças por ambiente.",
-                Description = "Desenha a paginação do revestimento dentro de cada ambiente (peça, junta, ângulo e ponto de partida: junta ou peça centralizada, canto ou ponto clicado), contornando pilares, e calcula peças inteiras e cortadas, área com perda e caixas. Tabela exportável para Excel.",
+                Tooltip = "Piso modelado placa por placa, com junta real e quantitativo.",
+                Description = "Modela o piso de revestimento de cada ambiente com a placa escolhida (dimensões, junta, espessura, material, ângulo e ponto de partida): um piso dividido em placas reais (peças do Revit) ou um piso por placa, contornando pilares, visível em planta, 3D e cortes. Calcula placas inteiras e cortadas, área com perda e caixas (tabela para o Excel).",
             },
             new ToolDef
             {
                 Panel = "Interiores", Id = "Acabamentos", Text = "Acabamentos", Command = typeof(AcabamentosCommand), Icon = "acabamentos",
-                Tooltip = "Pinta paredes, piso e teto dos ambientes e preenche o quadro de acabamentos.",
-                Description = "Aplica materiais de acabamento (ferramenta Pintura) nas faces de paredes, piso e teto que delimitam cada ambiente, criando o material se necessário, e preenche os parâmetros de acabamento de piso, parede, teto e rodapé usados nos quadros.",
+                Tooltip = "Clique nas faces para pintar, ou crie revestimento modelado nas paredes.",
+                Description = "Escolha o material e clique nas faces (paredes, pisos, forros) ou dentro dos ambientes. Pintura: aplica o material na face. Revestimento modelado: cria a camada (cerâmica, porcelanato, painel) sobre a parede, do piso acabado até a altura escolhida ou até o forro, com portas e janelas recortadas. Preenche o quadro de acabamentos do ambiente.",
             },
             new ToolDef
             {

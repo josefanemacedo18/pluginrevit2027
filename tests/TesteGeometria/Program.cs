@@ -17,6 +17,9 @@ namespace DetalhaBIM.TesteGeometria
             Run("Contagem de peças", Contagem);
             Run("Linhas de junta", Juntas);
             Run("Paginação diagonal (45°) conserva a área", Diagonal);
+            Run("Lista de peças (piso modelado peça a peça)", Pecas);
+            Run("Posições das juntas (divisão do piso em peças)", PosicoesJuntas);
+            Run("Pontos extremos de paredes curvas (arco)", Arcos);
 
             Console.WriteLine($"\n=== Resultado: {_ok} verificações OK, {_falhas} falha(s).");
             return _falhas == 0 ? 0 : 1;
@@ -152,6 +155,44 @@ namespace DetalhaBIM.TesteGeometria
             var lines = Plano2D.JointLines(new[] { Sala }, new P2(1.5, 1.5), x, 0.6, 0.6, 0);
             bool inside = lines.All(l => new[] { l.a, l.b }.All(p => p.X > -1e-6 && p.X < 3 + 1e-6 && p.Y > -1e-6 && p.Y < 3 + 1e-6));
             Check(lines.Count > 0 && inside, $"Juntas diagonais ficam dentro da sala ({lines.Count} linhas)");
+        }
+    
+        private static void Pecas()
+        {
+            P2 x = new P2(1, 0);
+            List<Tile> t = Plano2D.Tiles(new[] { Sala, Pilar }, new P2(0, 0), x, 0.6, 0.6, 0);
+            Check(t.Count == 24 && t.All(p => p.Whole), $"Sala 3×3 com pilar: 24 peças inteiras listadas ({t.Count})");
+            Check(!t.Any(p => Near(p.X0, 1.2) && Near(p.Y0, 1.2)), "A peça ocupada pelo pilar não é criada");
+
+            P2 o = Plano2D.GridOrigin(0, new P2(1.5, 1.5), x, 0.6, 0.6, 0.002);
+            List<Tile> c = Plano2D.Tiles(new[] { Sala }, o, x, 0.6, 0.6, 0.002);
+            TileCount n = Plano2D.CountTiles(new[] { Sala }, o, x, 0.6, 0.6, 0.002);
+            Check(c.Count == n.Total && c.Count(p => p.Whole) == n.Inteiras, "Lista de peças confere com a contagem");
+            Check(c.All(p => Near(p.X1 - p.X0, 0.6) && Near(p.Y1 - p.Y0, 0.6)), "Todas as peças com 60 × 60");
+            var ordenadas = c.OrderBy(p => p.X0).Select(p => p.X0).Distinct().ToList();
+            Check(ordenadas.Zip(ordenadas.Skip(1), (a, b) => b - a).All(d => Near(d, 0.602)), "Peças vizinhas separadas pela junta (60 cm + 2 mm)");
+        }
+
+        private static void PosicoesJuntas()
+        {
+            P2 x = new P2(1, 0);
+            var (xs, ys) = Plano2D.JointPositions(new[] { Sala }, new P2(0, 0), x, 0.6, 0.6, 0.002);
+            Check(xs.Count == 4 && ys.Count == 4, $"3×3 m com 60×60: 4 juntas em cada direção ({xs.Count}/{ys.Count})");
+            Check(Near(xs[0], 0.601), "Junta no eixo entre as peças (x = 0,601)");
+        }
+
+        private static void Arcos()
+        {
+            // Semicírculo superior (0° a 180°): o topo (90°) está no arco; a base (270°) não.
+            P2 p0 = new P2(1, 0), pm = new P2(0, 1), p1 = new P2(-1, 0);
+            Check(Plano2D.OnArc(p0, pm, p1, new P2(0, 1)), "Ponto mais alto de um semicírculo está no arco");
+            Check(!Plano2D.OnArc(p0, pm, p1, new P2(0, -1)), "Ponto oposto não está no arco");
+            Check(Plano2D.OnArc(p1, pm, p0, new P2(0, 1)), "Funciona com o arco no sentido horário");
+            // Quarto de círculo de 350° a 80° (atravessa o zero).
+            P2 a0 = P2.FromAngle(-10 * Math.PI / 180), am = P2.FromAngle(35 * Math.PI / 180), a1 = P2.FromAngle(80 * Math.PI / 180);
+            Check(Plano2D.OnArc(a0, am, a1, new P2(1, 0)), "Arco que atravessa 0°: contém o extremo em 0°");
+            Check(!Plano2D.OnArc(a0, am, a1, new P2(0, 1)), "Arco de −10° a 80° não contém 90°");
+            Check(!Plano2D.OnArc(a0, am, a1, new P2(-1, 0)), "Arco de −10° a 80° não contém 180°");
         }
     }
 }

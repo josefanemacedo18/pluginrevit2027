@@ -34,6 +34,7 @@ namespace DetalhaBIM.Services
         private readonly Report _report;
         private readonly FaceFinder _faces;
         private readonly List<Element> _obstacles;
+        private readonly RefLines _lines;
         private List<Element> _floors;
 
         public LocationDimensionService(Document doc, View view, DimensionBuilder builder, Report report)
@@ -46,6 +47,7 @@ namespace DetalhaBIM.Services
             _obstacles = Q.WallsInView(doc, view).Cast<Element>()
                 .Concat(Q.InView(doc, view, BuiltInCategory.OST_Columns))
                 .Concat(Q.InView(doc, view, BuiltInCategory.OST_StructuralColumns)).ToList();
+            _lines = new RefLines(doc, view);
         }
 
         public static bool Supports(View v) => v != null && !v.IsTemplate && (v is ViewPlan || v is ViewSection);
@@ -98,29 +100,66 @@ namespace DetalhaBIM.Services
                 else left = null;
             }
 
-            var candidates = new List<IList<RefPos>>();
+            XYZ through = c + a.CrossProduct(_view.ViewDirection).Normalize() * o.Offset;
+            if (Try(HorizontalCandidates(scan, a, lo, hi, left, right, through, o), a, through)) return 1;
+            _report.Warn($"{name}: não foi possível criar a locação ao longo de um dos eixos.");
+            return 0;
+        }
+
+        private IEnumerable<IList<RefPos>> HorizontalCandidates(ElementScan scan, XYZ a, double lo, double hi, RefPos left, RefPos right, XYZ through, LocationOptions o)
+        {
             if (o.Center)
             {
                 RefPos mid = scan.CenterRef(a);
-                if (mid != null) candidates.Add(Chain(left, right, new[] { mid }));
+                if (mid != null) yield return Chain(left, right, new[] { mid });
             }
             foreach (IList<RefPos> pair in scan.ExtremePairs(a))
             {
                 RefPos pLo = pair.OrderBy(r => r.Position).First(), pHi = pair.OrderBy(r => r.Position).Last();
-                var obj = new List<RefPos>();
-                if (o.IncludeSize || left != null) obj.Add(pLo);
-                if (o.IncludeSize || right != null) obj.Add(pHi);
-                candidates.Add(Chain(left, right, obj));
+                yield return Chain(left, right, ObjectRefs(pLo, pHi, left, right, o));
             }
-            if (candidates.Count == 0)
+            // Última alternativa: linhas de referência invisíveis nas extremidades (ou no centro) do objeto.
+            if (o.Center)
             {
-                _report.Warn($"{name}: o objeto não tem faces ou planos de referência nesta direção.");
-                return 0;
+                double m = (lo + hi) / 2;
+                RefPos h = Helper(through + a * (m - through.DotProduct(a)), a, m);
+                if (h != null) yield return Chain(left, right, new[] { h });
             }
-            XYZ through = c + a.CrossProduct(_view.ViewDirection).Normalize() * o.Offset;
-            if (_builder.CreateFirst(candidates, a, through) != null) return 1;
-            _report.Warn($"{name}: o Revit não aceitou as referências da locação.");
-            return 0;
+            else
+            {
+                RefPos h0 = Helper(through + a * (lo - through.DotProduct(a)), a, lo);
+                RefPos h1 = Helper(through + a * (hi - through.DotProduct(a)), a, hi);
+                if (h0 != null && h1 != null) yield return Chain(left, right, ObjectRefs(h0, h1, left, right, o));
+            }
+        }
+
+        private static List<RefPos> ObjectRefs(RefPos pLo, RefPos pHi, RefPos left, RefPos right, LocationOptions o)
+        {
+            var obj = new List<RefPos>();
+            if (o.IncludeSize || left != null) obj.Add(pLo);
+            if (o.IncludeSize || right != null) obj.Add(pHi);
+            return obj;
+        }
+
+        private RefPos Helper(XYZ p, XYZ dir, double pos) => _lines.Across(p, dir, pos, 6);
+
+        /// <summary>Cria a primeira cadeia válida e apaga as linhas auxiliares que não foram usadas.</summary>
+        private bool Try(IEnumerable<IList<RefPos>> candidates, XYZ dir, XYZ through)
+        {
+            _lines.Keep();
+            int before = _lines.Created;
+            Dimension d = _builder.CreateFirst(candidates, dir, through);
+            bool helpers = false;
+            if (d != null && _lines.Created > before)
+            {
+                foreach (Reference r in d.References)
+                {
+                    if (_doc.GetElement(r.ElementId) is CurveElement) helpers = true;
+                }
+            }
+            _lines.DeleteUnused(d == null ? null : new[] { d });
+            if (helpers) _report.Count("locações por linhas auxiliares (família sem referências cotáveis)");
+            return d != null;
         }
 
         private static IList<RefPos> Chain(RefPos left, RefPos right, IEnumerable<RefPos> obj)
@@ -142,25 +181,39 @@ namespace DetalhaBIM.Services
                 _report.Warn($"{name}: piso ou nível de referência não encontrado para a altura.");
                 return 0;
             }
-            var candidates = new List<IList<RefPos>>();
+            XYZ right = _view.RightDirection.Normalize();
+            scan.Extent(right, out double r0, out double r1);
+            XYZ through = c + right * (r1 - c.DotProduct(right) + o.Offset);
+            if (Try(VerticalCandidates(scan, floor, z0, z1, through, o), XYZ.BasisZ, through)) return 1;
+            _report.Warn($"{name}: não foi possível cotar a altura.");
+            return 0;
+        }
+
+        private IEnumerable<IList<RefPos>> VerticalCandidates(ElementScan scan, RefPos floor, double z0, double z1, XYZ through, LocationOptions o)
+        {
             if (o.Center)
             {
                 RefPos mid = scan.CenterRef(XYZ.BasisZ);
-                if (mid != null) candidates.Add(new List<RefPos> { floor, mid });
+                if (mid != null) yield return new List<RefPos> { floor, mid };
             }
             foreach (IList<RefPos> pair in scan.ExtremePairs(XYZ.BasisZ))
             {
                 RefPos bottom = pair.OrderBy(r => r.Position).First(), top = pair.OrderBy(r => r.Position).Last();
-                candidates.Add(o.IncludeSize ? new List<RefPos> { floor, bottom, top } : new List<RefPos> { floor, bottom });
+                yield return o.IncludeSize ? new List<RefPos> { floor, bottom, top } : new List<RefPos> { floor, bottom };
             }
-            if (candidates.Count == 0) return 0;
-
-            XYZ right = _view.RightDirection.Normalize();
-            scan.Extent(right, out double r0, out double r1);
-            XYZ through = c + right * (r1 - c.DotProduct(right) + o.Offset);
-            if (_builder.CreateFirst(candidates, XYZ.BasisZ, through) != null) return 1;
-            _report.Warn($"{name}: o Revit não aceitou as referências da altura.");
-            return 0;
+            XYZ z = XYZ.BasisZ;
+            if (o.Center)
+            {
+                double m = (z0 + z1) / 2;
+                RefPos h = Helper(through + z * (m - through.Z), z, m);
+                if (h != null) yield return new List<RefPos> { floor, h };
+            }
+            else
+            {
+                RefPos hb = Helper(through + z * (z0 - through.Z), z, z0);
+                RefPos ht = o.IncludeSize ? Helper(through + z * (z1 - through.Z), z, z1) : null;
+                if (hb != null) yield return ht != null ? new List<RefPos> { floor, hb, ht } : new List<RefPos> { floor, hb };
+            }
         }
 
         /// <summary>Face superior do piso sob o objeto; se não houver, o nível do objeto.</summary>

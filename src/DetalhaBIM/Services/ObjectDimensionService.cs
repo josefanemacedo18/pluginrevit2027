@@ -103,7 +103,7 @@ namespace DetalhaBIM.Services
             {
                 XYZ side = PlanSide(b.Y, up, right, o.AboveRight);
                 XYZ through = Geo.WithZ(b.Point(0, side.DotProduct(b.Y) > 0 ? b.Y1 : b.Y0, 0) + side * o.Offset, z);
-                n += Try(Candidates(e, scan, b, b.X, null, through), b.X, through, name, "largura");
+                n += Try(Candidates(e, scan, b, b.X, null, through), b.X, through, name, e is Wall ? "o comprimento" : "a largura");
                 if (e is Wall && o.WallOpenings)
                 {
                     XYZ t2 = through + side * Math.Max(o.Offset, Conv.PaperMm(7, _view));
@@ -114,7 +114,7 @@ namespace DetalhaBIM.Services
             {
                 XYZ side = PlanSide(b.X, up, right, o.AboveRight);
                 XYZ through = Geo.WithZ(b.Point(side.DotProduct(b.X) > 0 ? b.X1 : b.X0, 0, 0) + side * o.Offset, z);
-                n += Try(scan.ExtremePairs(b.Y), b.Y, through, name, e is Wall ? "espessura" : "profundidade");
+                n += Try(Candidates(e, scan, b, b.Y, null, through), b.Y, through, name, e is Wall ? "a espessura" : "a profundidade");
             }
             return n;
         }
@@ -146,9 +146,7 @@ namespace DetalhaBIM.Services
                 {
                     double zz = o.AboveRight ? b.Z1 + o.Offset : b.Z0 - o.Offset;
                     XYZ through = Geo.WithZ(b.Center, zz);
-                    bool alongX = ReferenceEquals(axis, b.X);
-                    List<IList<RefPos>> cands = alongX ? Candidates(e, scan, b, axis, null, through) : scan.ExtremePairs(axis);
-                    n += Try(cands, axis, through, name, "largura");
+                    n += Try(Candidates(e, scan, b, axis, null, through), axis, through, name, "a largura");
                 }
             }
             if (o.Height && Geo.IsParallel(up, XYZ.BasisZ, 0.999))
@@ -156,7 +154,7 @@ namespace DetalhaBIM.Services
                 XYZ sideDir = o.AboveRight ? right : right.Negate();
                 Extent(b, sideDir, out double lo, out double hi);
                 XYZ through = b.Center + sideDir * (hi - b.Center.DotProduct(sideDir) + o.Offset);
-                n += Try(scan.ExtremePairs(XYZ.BasisZ), XYZ.BasisZ, through, name, "altura");
+                n += Try(Candidates(e, scan, b, XYZ.BasisZ, null, through), XYZ.BasisZ, through, name, "a altura");
             }
             return n;
         }
@@ -176,7 +174,7 @@ namespace DetalhaBIM.Services
                 // Sobre o topo do objeto, do lado voltado para o observador.
                 XYZ through = b.Point(0, yFace, b.Z1) + b.Y * (sy * o.Offset);
                 _builder.PlaneNormal = XYZ.BasisZ;
-                n += Try(Candidates(e, scan, b, b.X, XYZ.BasisZ, through), b.X, through, name, "largura");
+                n += Try(Candidates(e, scan, b, b.X, XYZ.BasisZ, through), b.X, through, name, e is Wall ? "o comprimento" : "a largura");
                 if (e is Wall && o.WallOpenings)
                 {
                     XYZ t2 = through + b.Y * (sy * Math.Max(o.Offset, Conv.PaperMm(7, _view)));
@@ -188,7 +186,7 @@ namespace DetalhaBIM.Services
             {
                 XYZ through = b.Point(xFace, 0, b.Z1) + b.X * (sx * o.Offset);
                 _builder.PlaneNormal = XYZ.BasisZ;
-                n += Try(scan.ExtremePairs(b.Y, XYZ.BasisZ), b.Y, through, name, e is Wall ? "espessura" : "profundidade");
+                n += Try(Candidates(e, scan, b, b.Y, XYZ.BasisZ, through), b.Y, through, name, e is Wall ? "a espessura" : "a profundidade");
             }
             if (o.Height)
             {
@@ -198,40 +196,41 @@ namespace DetalhaBIM.Services
                 XYZ offsetDir = frontIsY ? b.X * sx : b.Y * sy;
                 XYZ through = b.Point(xFace, yFace, 0) + offsetDir * o.Offset;
                 _builder.PlaneNormal = normal;
-                n += Try(scan.ExtremePairs(XYZ.BasisZ, normal), XYZ.BasisZ, through, name, "altura");
+                n += Try(Candidates(e, scan, b, XYZ.BasisZ, normal, through), XYZ.BasisZ, through, name, "a altura");
             }
             _builder.PlaneNormal = null;
             return n;
         }
 
-        // ================================================================== paredes
+        // ================================================================== referências
 
         /// <summary>
-        /// Referências do comprimento: extremidades da parede (faces) e, quando as pontas forem
-        /// chanfradas (paredes inclinadas), linhas invisíveis nos cantos (plantas e elevações).
+        /// Alternativas de referências para uma dimensão, na ordem: (paredes) faces das pontas;
+        /// planos de referência da família; faces; arestas/linhas simbólicas; e, por último, linhas
+        /// de referência invisíveis nas extremidades do objeto — criadas só se as anteriores
+        /// falharem, para que a cota saia sempre.
         /// </summary>
-        private List<IList<RefPos>> Candidates(Element e, ElementScan scan, Box b, XYZ axis, XYZ planeNormal, XYZ through)
+        private IEnumerable<IList<RefPos>> Candidates(Element e, ElementScan scan, Box b, XYZ axis, XYZ planeNormal, XYZ through)
         {
-            List<IList<RefPos>> list = scan.ExtremePairs(axis, planeNormal);
-            if (!(e is Wall)) return list;
-
-            // Nas paredes, as extremidades reais (faces perpendiculares ao comprimento) vêm primeiro,
-            // e só valem se estiverem nas pontas; do contrário usa linhas invisíveis nos cantos.
-            List<RefPos> ends = scan.FacesAlong(axis, 1);
-            RefPos lo = ends.Where(r => Math.Abs(r.Position - b.Lo(axis)) < Conv.Mm(2)).FirstOrDefault();
-            RefPos hi = ends.Where(r => Math.Abs(r.Position - b.Hi(axis)) < Conv.Mm(2)).FirstOrDefault();
-            var result = new List<IList<RefPos>>();
-            if (lo != null && hi != null) result.Add(new List<RefPos> { lo, hi });
-            else if (_refLines != null)
+            double lo = b.Lo(axis), hi = b.Hi(axis);
+            bool wallLength = e is Wall && axis.IsAlmostEqualTo(b.X);
+            if (wallLength)
             {
-                lo ??= _refLines.Across(through + axis * (b.Lo(axis) - through.DotProduct(axis)), axis, b.Lo(axis));
-                hi ??= _refLines.Across(through + axis * (b.Hi(axis) - through.DotProduct(axis)), axis, b.Hi(axis));
-                if (lo != null && hi != null) result.Add(new List<RefPos> { lo, hi });
+                List<RefPos> ends = scan.FacesAlong(axis, 1);
+                RefPos a = ends.FirstOrDefault(r => Math.Abs(r.Position - lo) < Conv.Mm(2));
+                RefPos c = ends.FirstOrDefault(r => Math.Abs(r.Position - hi) < Conv.Mm(2));
+                if (a != null && c != null) yield return new List<RefPos> { a, c };
             }
-            // Demais alternativas só valem se medirem de ponta a ponta (e não entre ombreiras de vãos).
-            result.AddRange(list.Where(c => Math.Abs(c.Min(r => r.Position) - b.Lo(axis)) < Conv.Mm(3)
-                                            && Math.Abs(c.Max(r => r.Position) - b.Hi(axis)) < Conv.Mm(3)));
-            return result;
+            foreach (IList<RefPos> pair in scan.ExtremePairs(axis, planeNormal))
+            {
+                // Paredes: só vale de ponta a ponta (e não entre ombreiras de vãos).
+                if (wallLength && (Math.Abs(pair.Min(r => r.Position) - lo) > Conv.Mm(3) || Math.Abs(pair.Max(r => r.Position) - hi) > Conv.Mm(3))) continue;
+                yield return pair;
+            }
+            if (_refLines == null) yield break;
+            RefPos h0 = _refLines.Across(through + axis * (lo - through.DotProduct(axis)), axis, lo, 6, planeNormal);
+            RefPos h1 = _refLines.Across(through + axis * (hi - through.DotProduct(axis)), axis, hi, 6, planeNormal);
+            if (h0 != null && h1 != null) yield return new List<RefPos> { h0, h1 };
         }
 
         /// <summary>Cadeia ao longo da parede com as extremidades e as ombreiras dos vãos.</summary>
@@ -252,16 +251,37 @@ namespace DetalhaBIM.Services
 
         // ================================================================== auxiliares
 
-        private int Try(List<IList<RefPos>> candidates, XYZ dir, XYZ through, string name, string what)
+        private int Try(IEnumerable<IList<RefPos>> candidates, XYZ dir, XYZ through, string name, string what)
         {
-            if (candidates.Count == 0)
+            _refLines?.Keep();
+            int before = _refLines?.Created ?? 0;
+            Dimension d = _builder.CreateFirst(candidates, dir, through);
+            bool usedHelpers = d != null && UsesCurveElements(d);
+            _refLines?.DeleteUnused(d == null ? null : new[] { d });
+            if (d == null)
             {
-                _report.Warn($"{name}: não há faces ou planos de referência para cotar a {what}.");
+                _report.Warn($"{name}: não foi possível cotar {what} nesta vista.");
                 return 0;
             }
-            if (_builder.CreateFirst(candidates, dir, through) != null) return 1;
-            _report.Warn($"{name}: o Revit não aceitou as referências da {what} nesta vista.");
-            return 0;
+            if (usedHelpers && (_refLines?.Created ?? 0) > before)
+                _report.Count("cotas por linhas auxiliares (família sem referências cotáveis — refaça se mover o objeto)");
+            return 1;
+        }
+
+        private bool UsesCurveElements(Dimension d)
+        {
+            try
+            {
+                foreach (Reference r in d.References)
+                {
+                    if (_doc.GetElement(r.ElementId) is CurveElement) return true;
+                }
+            }
+            catch
+            {
+                // referências ilegíveis
+            }
+            return false;
         }
 
         private static void Extent(Box b, XYZ dir, out double lo, out double hi)

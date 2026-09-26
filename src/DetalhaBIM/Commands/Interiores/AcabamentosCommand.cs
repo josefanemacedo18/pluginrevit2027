@@ -1,78 +1,190 @@
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
 using DetalhaBIM.Core;
 using DetalhaBIM.Services;
 using DetalhaBIM.UI;
 
 namespace DetalhaBIM.Commands.Interiores
 {
-    /// <summary>Pinta paredes, piso e teto de cada ambiente e preenche os parâmetros de acabamento.</summary>
+    /// <summary>
+    /// Acabamentos: escolha o material e clique nas faces (paredes, pisos, forros) ou dentro dos
+    /// ambientes. Aplica como pintura ou cria o revestimento modelado sobre a parede.
+    /// </summary>
     [Transaction(TransactionMode.Manual)]
     public class AcabamentosCommand : CommandBase
     {
-        protected override string Title => "Acabamentos por Ambiente";
+        protected override string Title => "Acabamentos";
 
-        private const string NoPaint = "<Não pintar>";
         private const string Remove = "<Remover pintura>";
 
         protected override Result Run(CommandContext ctx)
         {
             Document doc = ctx.Doc;
-            List<string> materials = ProjectChoices.Materials(doc, NoPaint);
-            materials.Insert(1, Remove);
+            View view = ctx.ActiveView;
+            List<string> materials = ProjectChoices.Materials(doc, Remove).Where(n => n != Choices.Default).ToList();
 
             var dlg = new OptionsDialog("acabamentos", Title,
-                "Aplica o material de acabamento nas faces que delimitam cada ambiente (como a ferramenta Pintura, sem mudar as paredes) e preenche os campos do quadro de acabamentos.",
-                Theme.Interiores, ctx.MainWindow, "Aplicar");
+                "Escolha o material e clique nas faces que devem recebê-lo (paredes, pisos, forros) ou dentro dos ambientes para aplicar em todas as paredes. Continue clicando; ESC encerra.",
+                Theme.Interiores, ctx.MainWindow, "Começar a aplicar");
             FormBuilder f = dlg.Form;
-            f.Section("Ambientes");
-            f.Radio("escopo", null, Pick.RoomScopeOptions, 0);
-            f.Section("Pintar faces (digite um nome para criar o material)");
-            f.Combo("mParede", "Paredes", materials, NoPaint, editable: true);
-            f.Combo("mPiso", "Piso", materials, NoPaint, editable: true);
-            f.Combo("mTeto", "Teto / forro", materials, NoPaint, editable: true);
-            f.Hint("Se uma mesma face de parede atravessa vários ambientes, ela é pintada inteira — use \"Dividir face\" do Revit antes, se precisar de cores diferentes.");
-            f.Section("Quadro de acabamentos (parâmetros do ambiente)");
-            f.Check("params", "Preencher os acabamentos do ambiente", true);
-            f.Text("tPiso", "Acabamento do piso", "", "Vazio = usa o nome do material do piso escolhido acima.");
-            f.Text("tParede", "Acabamento das paredes", "", "Vazio = usa o nome do material das paredes escolhido acima.");
-            f.Text("tTeto", "Acabamento do teto", "", "Vazio = usa o nome do material do teto escolhido acima.");
-            f.Text("tRodape", "Rodapé", "");
-            f.Check("manter", "Não substituir valores já preenchidos", false);
+            f.Section("Acabamento");
+            f.Radio("tipo", null, new[]
+            {
+                "Pintura — aplica o material na face (tinta, textura, papel de parede...)",
+                "Revestimento modelado — cria a camada sobre a parede (cerâmica, porcelanato, painel), com portas e janelas recortadas",
+            }, 0);
+            f.Combo("material", "Material (digite um nome para criar)", materials, "Pintura acrílica branca", editable: true);
+            f.Combo("cor", "Cor de um material novo", FinishService.Colors.Select(c => c.name).ToList(), FinishService.Colors[0].name);
+            f.Section("Revestimento modelado");
+            f.Number("espessura", "Espessura", 1, "cm");
+            f.Radio("altura", "Altura", new[] { "Até o forro (ou até o topo do ambiente/parede)", "Altura definida abaixo" }, 1);
+            f.Number("h", "Altura do revestimento", 120, "cm");
+            f.Check("piso", "Começar no piso acabado (quando houver piso no ambiente)", true);
+            f.Number("desloc", "Deslocamento da base (ex.: altura do rodapé)", 0, "cm");
+            f.Section("Onde aplicar");
+            f.Radio("onde", null, new[]
+            {
+                "Clicar nas faces, uma a uma — melhor em vistas 3D, cortes e elevações",
+                "Clicar dentro dos ambientes (em planta): todas as paredes do ambiente",
+            }, 0);
+            f.Check("pPiso", "Ambientes + pintura: pintar também o piso", false);
+            f.Check("pTeto", "Ambientes + pintura: pintar também o teto/forro", false);
+            f.Check("quadro", "Ambientes: preencher o quadro de acabamentos (parede/piso/teto)", true);
+            f.Hint("A pintura aparece nos estilos visuais Sombreado, Cores consistentes e Realista (3D, cortes e elevações).");
             if (!dlg.Run()) return Result.Cancelled;
 
-            List<Room> rooms = Pick.Rooms(ctx.UiDoc, (RoomScope)f.Index("escopo"));
+            bool clad = f.Index("tipo") == 1;
+            bool byRoom = f.Index("onde") == 1;
+            string matName = f.String("material");
+            bool remove = !clad && matName == Remove;
+            if (string.IsNullOrWhiteSpace(matName) || (clad && matName == Remove))
+                throw new UserMessageException("Escolha ou digite o material do acabamento.");
+            if (byRoom && !(view is ViewPlan))
+                throw new UserMessageException("Para clicar dentro dos ambientes, abra uma planta. Para clicar nas faces, escolha a outra opção.");
+
             var report = new Report(Title);
-            Tx.Run(doc, Title, () =>
+            Color color = FinishService.Colors.FirstOrDefault(c => c.name == f.String("cor")).color ?? FinishService.Colors[0].color;
+            Material mat = null;
+            WallType cladType = null;
+            double thickness = Conv.Cm(f.Double("espessura"));
+            if (clad && thickness < Conv.Mm(1)) throw new UserMessageException("Informe a espessura do revestimento.");
+            Tx.Run(doc, Title + " - material", () =>
             {
-                Material Mat(string key) => IsChoice(f.String(key)) ? null : Q.Material(doc, f.String(key), true, report);
-                string Txt(string key, Material m) => string.IsNullOrWhiteSpace(f.String(key)) ? m?.Name : f.String(key);
-                Material wall = Mat("mParede"), floor = Mat("mPiso"), ceiling = Mat("mTeto");
-                var o = new FinishOptions
-                {
-                    Wall = wall,
-                    Floor = floor,
-                    Ceiling = ceiling,
-                    RemoveWall = f.String("mParede") == Remove,
-                    RemoveFloor = f.String("mPiso") == Remove,
-                    RemoveCeiling = f.String("mTeto") == Remove,
-                    SetParameters = f.Bool("params"),
-                    KeepFilled = f.Bool("manter"),
-                    TextFloor = Txt("tPiso", floor),
-                    TextWall = Txt("tParede", wall),
-                    TextCeiling = Txt("tTeto", ceiling),
-                    TextBase = f.String("tRodape"),
-                };
-                var service = new FinishService(doc, report);
-                foreach (Room r in rooms) service.Apply(r, o);
+                if (!remove) mat = Q.Material(doc, matName, true, report, color);
+                if (clad) cladType = BaseboardService.EnsureWallType(doc, thickness, mat, "Revestimento");
             });
-            report.Show();
+
+            var cladding = new BaseboardOptions
+            {
+                WallTypeId = cladType?.Id,
+                Thickness = cladType?.Width ?? thickness,
+                Height = Conv.Cm(f.Double("h")),
+                ToCeiling = f.Index("altura") == 0,
+                OnFloor = f.Bool("piso"),
+                BaseOffset = Conv.Cm(f.Double("desloc")),
+                CutAtDoors = true,
+                CutAtLowWindows = false,
+                AroundColumns = true,
+                SkipExisting = true,
+                Holes = true,
+                Label = "REVESTIMENTO",
+            };
+            var finish = new FinishService(doc, report);
+            var strips = new BaseboardService(doc, report);
+            Selection sel = ctx.UiDoc.Selection;
+
+            if (!byRoom)
+            {
+                while (true)
+                {
+                    Reference r;
+                    try
+                    {
+                        r = sel.PickObject(ObjectType.Face, clad ? "Clique na face da parede que recebe o revestimento (ESC encerra)" : "Clique na face a pintar (ESC encerra)");
+                    }
+                    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                    {
+                        break;
+                    }
+                    Tx.Run(doc, Title, () =>
+                    {
+                        Element e = doc.GetElement(r);
+                        if (clad)
+                        {
+                            if (e is Wall host && host.GetGeometryObjectFromReference(r) is PlanarFace pf)
+                            {
+                                int n = strips.CladFace(host, pf, cladding);
+                                report.Count("revestimentos criados", n);
+                            }
+                            else
+                            {
+                                report.Warn("Revestimento modelado: clique na face plana de uma parede (para pisos e forros use Pintura ou Paginação de Piso).");
+                            }
+                        }
+                        else if (finish.PaintFace(r, mat, remove))
+                        {
+                            report.Count(remove ? "faces com pintura removida" : "faces pintadas");
+                        }
+                    });
+                }
+            }
+            else
+            {
+                Guards.EnsureWorkPlane(doc, view);
+                while (true)
+                {
+                    XYZ p;
+                    try
+                    {
+                        p = sel.PickPoint(ObjectSnapTypes.None, "Clique dentro do ambiente (ESC encerra)");
+                    }
+                    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                    {
+                        break;
+                    }
+                    Room room = RoomGeo.At(doc, p, view.GenLevel?.Id);
+                    if (room == null)
+                    {
+                        report.Warn("Um dos cliques não caiu dentro de um ambiente delimitado.");
+                        continue;
+                    }
+                    Tx.Run(doc, Title + " " + RoomGeo.Label(room), () =>
+                    {
+                        if (clad)
+                        {
+                            int n = strips.Create(room, cladding);
+                            if (n > 0)
+                            {
+                                report.Count("trechos de revestimento", n);
+                                report.Count("ambientes revestidos");
+                            }
+                        }
+                        else
+                        {
+                            int n = finish.PaintRoom(room, mat, remove, f.Bool("pPiso"), f.Bool("pTeto"));
+                            report.Count(remove ? "faces com pintura removida" : "faces pintadas", n);
+                            if (n > 0) report.Count("ambientes pintados");
+                        }
+                        if (f.Bool("quadro") && mat != null)
+                        {
+                            finish.SetRoomFinishes(room,
+                                !clad && f.Bool("pPiso") ? mat.Name : null,
+                                mat.Name,
+                                !clad && f.Bool("pTeto") ? mat.Name : null,
+                                null);
+                        }
+                    });
+                }
+            }
+
+            if (strips.Area > 0) report.Info($"Área de revestimento: {Conv.Format(Conv.ToM2(strips.Area), 2)} m² (sem descontar os vãos).");
+            if (report.Total > 0 || report.Warnings.Count > 0) report.Show();
             return Result.Succeeded;
         }
-
-        private static bool IsChoice(string s) => string.IsNullOrWhiteSpace(s) || s == NoPaint || s == Remove;
     }
 }

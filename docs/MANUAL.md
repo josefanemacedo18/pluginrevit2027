@@ -6,7 +6,7 @@ Este manual explica cada ferramenta: para que serve, como usar, o que cada opç�
 
 - [Conceitos gerais](#conceitos-gerais)
 - [Cotas](#cotas)
-  - [Cotas por Ambiente](#cotas-por-ambiente) · [Cotas por Parede](#cotas-por-parede) · [Cotas Externas](#cotas-externas) · [Cota Alinhada](#cota-alinhada) · [Cotar Objetos 3D](#cotar-objetos-3d) · [Por Seleção](#por-seleção) · [Por Pontos](#por-pontos) · [Níveis de Piso](#níveis-de-piso)
+  - [Cotas por Ambiente](#cotas-por-ambiente) · [Cotas por Parede](#cotas-por-parede) · [Cotas Externas](#cotas-externas) · [Cota Alinhada](#cota-alinhada) · [Cotar Componentes](#cotar-componentes) · [Por Seleção](#por-seleção) · [Por Pontos](#por-pontos) · [Níveis de Piso](#níveis-de-piso)
 - [Vistas](#vistas)
   - [Vistas por Ambiente](#vistas-por-ambiente) · [Isométrico e Elevações](#isométrico-e-elevações-atalhos) · [Plantas Técnicas](#plantas-técnicas) · [Vistas de Esquadrias](#vistas-de-esquadrias)
 - [Interiores](#interiores)
@@ -52,7 +52,7 @@ aberto. Se um nome não existir, o plugin usa o padrão do Revit e avisa no rela
 ## Cotas
 
 > As ferramentas de cotas funcionam em **plantas** (de piso ou de forro); os botões ficam desabilitados em
-> outras vistas. A exceção é **Cotar Objetos 3D**, que também funciona em cortes, elevações e vistas 3D isométricas.
+> outras vistas. A exceção é **Cotar Componentes**, que também funciona em cortes, elevações e vistas 3D isométricas.
 
 ### Cotas por Ambiente
 
@@ -67,6 +67,8 @@ Cria as cotas internas de cada ambiente.
 
 A direção principal é a do maior trecho reto de parede do ambiente, então ambientes rotacionados também funcionam.
 
+- **Paredes curvas:** as cadeias chegam às **pontas** e ao **ponto mais extremo** de cada trecho curvo do
+  contorno (linhas de referência invisíveis nesses pontos), então a cota do ambiente fecha até a curva.
 - **Paredes inclinadas:** paredes fora das duas direções principais (por exemplo, a 30° ou 45°) recebem uma
   cota **alinhada com a própria parede**, medindo a face de acabamento de canto a canto.
 
@@ -89,6 +91,11 @@ O plugin encontra sozinho:
 
 Linhas repetidas não são criadas. Por exemplo, em uma fachada sem janelas, a 1ª linha seria igual à total e é omitida.
 
+**Paredes curvas:** quando uma parede curva está ligada à ponta da fachada, a linha de paredes e a cota total
+vão até as **pontas e o ponto mais extremo do arco**. Se você clicar diretamente em uma **parede curva**, o
+DetalhaBIM cota a face do lado clicado com **raio**, **comprimento do arco** e **corda** (distância reta entre
+as pontas).
+
 ### Cotas Externas
 
 Cria de uma vez as cotas externas de todo o pavimento.
@@ -97,6 +104,7 @@ Cria de uma vez as cotas externas de todo o pavimento.
   isso, ele varre a edificação "de fora para dentro".
 - Em cada lado, cria as linhas de **vãos**, **paredes** e **total**, afastadas da face mais externa daquele lado.
 - Os lados seguem a direção predominante das paredes, o que funciona também em edificações rotacionadas.
+- Paredes curvas ligadas às fachadas entram na cota de paredes e na total, pelas pontas e pelo ponto extremo.
 
 > Dica: em fachadas muito recortadas, complemente com a ferramenta *Cotas por Parede*.
 
@@ -115,6 +123,7 @@ cotas ficam). São criadas até três linhas paralelas à face:
 Quando a parede termina **chanfrada** (encontro com outra parede inclinada), não existe face perpendicular
 para o Revit cotar. Nesse caso, o DetalhaBIM cria uma **linha de detalhe invisível** exatamente no canto da
 face e cota até ela, e a medida sai correta. Opcionalmente, cota também a **espessura** no ponto clicado.
+Clicando em uma **parede curva**, a cota é de **raio**, **comprimento do arco** e **corda** da face clicada.
 
 **Modo livre:** clique em uma parede, eixo, plano de referência ou linha (que define a direção), depois em
 **dois pontos quaisquer** (com snaps de extremidade, interseção, ponto médio...) e onde a linha de cota deve
@@ -122,9 +131,10 @@ passar. A cota mede a distância entre os dois pontos **na direção escolhida**
 
 Os dois modos são contínuos. Pressione **ESC** para terminar.
 
-### Cotar Objetos 3D
+### Cotar Componentes
 
-Cota **paredes e qualquer família** (mobiliário, marcenaria, louças, equipamentos, luminárias...). Funciona em:
+Cota **componentes** — as famílias inseridas pelo comando *Componente* do Revit: mobiliário, marcenaria, blocos,
+louças, equipamentos, luminárias... — e também **paredes**. Funciona em:
 
 | Vista | O que é cotado |
 |---|---|
@@ -135,11 +145,16 @@ Cota **paredes e qualquer família** (mobiliário, marcenaria, louças, equipame
 - **Vistas 3D:** o Revit só aceita cotas em vistas 3D **travadas**. O DetalhaBIM salva a orientação e trava a
   vista sozinho. Se for a vista `{3D}` padrão, que não pode ser travada sem nome, ele cria a cópia
   "DetalhaBIM - 3D cotado", travada, e a abre. Vistas em perspectiva não são suportadas.
+- **Como mede:** tenta, nesta ordem, os planos de referência *Esquerda/Direita*, *Frente/Fundo* e
+  *Inferior/Superior* da família; as faces; e as arestas/linhas simbólicas (em planta, muitos blocos só têm
+  linhas 2D). Todas as referências vêm da geometria do **símbolo** da família — a única que o Revit aceita em
+  cotas. **Cada cota criada é conferida**: se não medir o tamanho real do objeto, é apagada e a próxima
+  alternativa é tentada.
+- **Famílias sem nada cotável** (blocos importados, malhas): a cota é feita por **linhas auxiliares
+  invisíveis** nas extremidades do objeto. A medida sai correta, mas não acompanha o objeto se ele for
+  movido; o relatório informa quantas cotas ficaram assim.
 - **Paredes:** comprimento (ponta a ponta), espessura e altura. A opção *vãos* acrescenta a cadeia com as
   ombreiras das portas e janelas.
-- **Famílias:** usa, nesta ordem, os planos de referência *Esquerda/Direita*, *Frente/Fundo* e
-  *Inferior/Superior* da família, depois as faces e por último as arestas. Assim funciona com a grande maioria
-  das famílias de fabricantes.
 - **Posição:** distância em milímetros na folha; em plantas e elevações, escolha abaixo/à esquerda ou acima/à direita.
 
 ### Por Seleção
@@ -253,35 +268,56 @@ voltada para o ambiente, cortado pelas portas. Como no Revit, o perfil percorre 
 
 ### Paginação de Piso
 
-Desenha a **paginação do revestimento** dentro de cada ambiente da planta ativa e calcula as peças.
+**Modela o piso** de revestimento de cada ambiente, placa por placa. Não é hachura: as placas são elementos
+reais, com a junta como vão entre elas, e aparecem na planta, no 3D, nos cortes e nas tabelas.
 
-- **Peça:** largura, comprimento (por exemplo, 60×60, 90×90, 20×120 para régua) e **junta** (rejunte, em mm).
+- **Placa:** descrição, largura e comprimento (por exemplo, 60×60, 90×90, 20×120 para régua), **junta**
+  (rejunte, em mm), **espessura** e **material** (digite um nome para criar). O tipo de piso
+  "DetalhaBIM - Porcelanato 60x60 - 1 cm - material" é criado sozinho, ou escolha um tipo do projeto.
 - **Ponto de partida:**
   - *Junta centralizada* — uma junta passa pelo centro do ambiente (distribui os recortes nas bordas);
-  - *Peça centralizada* — uma peça fica no centro;
-  - *Peça inteira no canto* — começa inteira no canto do ambiente;
+  - *Placa centralizada* — uma placa fica no centro;
+  - *Placa inteira no canto* — começa inteira no canto do ambiente;
   - *Clicar um ponto* — um ponto em comum para todos os ambientes, com as juntas alinhadas entre eles.
 - **Ângulo:** em relação à maior parede do ambiente (0°, 45° para diagonal ou qualquer valor).
-- As juntas são **linhas de detalhe** no estilo escolhido, recortadas pelo contorno e contornando pilares.
-  Cada ambiente vira um **grupo** ("Paginação - número - nome"), fácil de mover ou apagar. Refazer a paginação
-  substitui a anterior.
-- **Quantitativo:** peças **inteiras** e **cortadas** (cada peça cortada conta como uma peça comprada),
-  área, área com **perda** e número de **caixas** (se você informar os m² por caixa). Uma nota com a
-  quantidade fica no ambiente, e a tabela final pode ser **copiada para o Excel** ou **exportada em CSV**.
+- **Modelagem:**
+  - *Um piso por ambiente dividido nas juntas* (recomendado): o piso do ambiente é dividido em **peças**
+    (Parts) do Revit, uma por placa, com o vão da junta. É leve e fácil de refazer. As placas aparecem nas
+    vistas com *Visibilidade de peças = Mostrar peças*; o DetalhaBIM ajusta isso na planta ativa, nas plantas
+    do mesmo nível e nas vistas 3D.
+  - *Um piso separado para cada placa*: cada placa é um piso (bom para trocar o material de placas
+    específicas). Limite de 2.500 placas por ambiente.
+- **Base:** apoia a paginação sobre o piso existente do ambiente (laje ou contrapiso); o **Rodapé** criado
+  depois se apoia sobre ela.
+- Refazer a paginação de um ambiente **substitui** a anterior (e remove as linhas da versão 1.3).
+- **Quantitativo:** placas **inteiras** e **cortadas** (cada placa cortada conta como uma comprada), área,
+  área com **perda** e número de **caixas** (se você informar os m² por caixa). A tabela final pode ser
+  **copiada para o Excel** ou **exportada em CSV**.
 
 ### Acabamentos
 
-Aplica os materiais de acabamento em cada ambiente:
+Escolha o **material** e **clique onde ele vai**. O modo é contínuo; **ESC** encerra.
 
-- **Pintar faces:** paredes, piso e teto que delimitam o ambiente recebem o material escolhido pela
-  ferramenta *Pintura* do Revit, sem alterar a composição das paredes. Digite um nome novo para criar o
-  material, ou escolha *Remover pintura* para desfazer.
-- **Quadro de acabamentos:** preenche os parâmetros *Acabamento do piso, da parede, do teto e da base
-  (rodapé)* do ambiente, usados pelo quadro de acabamentos de **Quadros e Tabelas**. Campo vazio = nome do
-  material escolhido.
+**O que aplicar:**
 
-> Se a mesma face de parede atravessa vários ambientes, ela é pintada inteira. Use *Dividir face* do Revit
-> antes para ter um material diferente em cada ambiente.
+- **Pintura:** aplica o material na face (ferramenta *Pintura* do Revit), sem alterar a composição da parede —
+  tinta, textura, papel de parede. Vale para paredes, pisos e forros. *Remover pintura* desfaz.
+- **Revestimento modelado:** cria a **camada** sobre a face da parede (cerâmica, porcelanato, painel), com a
+  espessura e o material escolhidos. Vai do **piso acabado** (com deslocamento opcional, por exemplo, para
+  começar acima do rodapé) até a **altura definida** (ex.: 1,20 m) ou **até o forro**. **Portas e janelas são
+  recortadas**. A camada não altera a área dos ambientes e leva "REVESTIMENTO" no *Comentários*.
+
+**Onde aplicar:**
+
+- **Clicar nas faces, uma a uma:** melhor em vistas 3D, cortes e elevações.
+- **Clicar dentro dos ambientes** (em planta): todas as paredes do ambiente de uma vez. Na pintura, opcionalmente
+  também o piso e o teto. Preenche o quadro de acabamentos do ambiente (parede/piso/teto).
+
+Materiais novos recebem a **cor** escolhida. A pintura aparece nos estilos visuais *Sombreado*, *Cores
+consistentes* e *Realista*.
+
+> Pintura: se a mesma face de parede atravessa vários ambientes, ela é pintada inteira. Use *Dividir face* do
+> Revit antes, ou use o revestimento modelado, que segue o contorno de cada ambiente.
 
 ### Detalhar Marcenaria
 
@@ -293,6 +329,9 @@ iguais), são criadas:
 - **Isométrico 3D** com caixa de corte ajustada à peça e vista travada;
 - **Cotas** de largura, profundidade e altura em todas as vistas;
 - **Prancha** "MARCENARIA - código" com as vistas distribuídas.
+
+As cotas usam a mesma técnica de **Cotar Componentes** (planos de referência, faces, linhas simbólicas e, se
+preciso, linhas auxiliares), então todas as vistas saem cotadas. O recorte das vistas já deixa espaço para as cotas.
 
 O nome vem da *Marca de tipo* (por exemplo, M01), da *Marca* ou de *Família - Tipo*. A vista frontal olha para a
 face *Frente* da família, que é a convenção dos modelos de família do Revit. Se a sua família foi modelada ao
@@ -481,7 +520,9 @@ Os padrões do escritório ficam organizados em abas:
 | "Controle de Aplicativo Inteligente" bloqueou o arquivo | Esse recurso do Windows 11 bloqueia DLLs sem assinatura digital e não aceita exceções. Desative-o (Iniciar → digite *Controle de Aplicativo Inteligente* → Desativado) ou use uma DLL assinada. |
 | "Failed to initialize the add-in... the assembly does not exist" (a DLL não existe) | A `DetalhaBIM.dll` não está na mesma pasta do `DetalhaBIM.addin`, ou foi removida pelo antivírus (veja *Segurança do Windows → Histórico de proteção*). Copie de novo os 2 arquivos, lado a lado. |
 | O plugin aparece duas vezes ou dá erro de "AddInId duplicado" | Sobrou uma instalação anterior. Apague `%AppData%\Autodesk\ApplicationPlugins\DetalhaBIM.bundle` e a pasta `DetalhaBIM` dentro de `Addins\2027`, se existirem. |
-| Botões de cotas desabilitados | Eles funcionam somente em plantas. Abra uma planta de piso ou de forro. **Cotar Objetos 3D** também funciona em cortes, elevações e vistas 3D isométricas, e **Locação** também em cortes e elevações. |
+| Botões de cotas desabilitados | Eles funcionam somente em plantas. Abra uma planta de piso ou de forro. **Cotar Componentes** também funciona em cortes, elevações e vistas 3D isométricas, e **Locação** também em cortes e elevações. |
+| Paginação: o piso aparece sem as placas | A vista está com *Visibilidade de peças = Mostrar original*. Nas propriedades da vista, mude para *Mostrar peças*. |
+| Pintura "não aparece" | A pintura só é vista nos estilos *Sombreado*, *Cores consistentes* e *Realista* (3D, cortes, elevações). Em planta não se vê a face da parede. |
 | Cotas em 3D não aparecem | A vista 3D precisa estar travada e não pode ser perspectiva. O DetalhaBIM trava a vista sozinho. Se a vista foi destravada depois, as cotas podem sumir: trave de novo com *Restaurar orientação e travar vista*. |
 | Objeto sem cota ("não há faces ou planos de referência") | A família não tem planos de referência nem faces planas naquela direção (por exemplo, móveis curvos). Cote manualmente ou ajuste a família. |
 | Rodapé não foi cortado em uma porta | A porta precisa estar hospedada na parede que delimita o ambiente. Portas de modelos vinculados não são detectadas. |

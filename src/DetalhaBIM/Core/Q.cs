@@ -102,14 +102,28 @@ namespace DetalhaBIM.Core
         /// Material pelo nome. Se <paramref name="create"/> for verdadeiro e ele não existir, cria um
         /// material novo com esse nome (deve ser chamado dentro de uma transação).
         /// </summary>
-        public static Material Material(Document doc, string name, bool create, Report report = null)
+        public static Material Material(Document doc, string name, bool create, Report report = null, Color color = null)
         {
             if (string.IsNullOrWhiteSpace(name)) return null;
             Material m = All<Material>(doc).FirstOrDefault(x => x.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
             if (m != null || !create) return m;
             ElementId id = Autodesk.Revit.DB.Material.Create(doc, name.Trim());
+            m = doc.GetElement(id) as Material;
+            if (m != null && color != null)
+            {
+                try
+                {
+                    // Cor de sombreamento visível já no estilo "Sombreado", sem depender da aparência de renderização.
+                    m.UseRenderAppearanceForShading = false;
+                    m.Color = color;
+                }
+                catch
+                {
+                    // Mantém a cor padrão.
+                }
+            }
             report?.Count("materiais criados");
-            return doc.GetElement(id) as Material;
+            return m;
         }
 
         // ------------------------------------------------------------------ parâmetros

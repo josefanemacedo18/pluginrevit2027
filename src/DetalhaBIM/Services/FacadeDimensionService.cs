@@ -39,6 +39,8 @@ namespace DetalhaBIM.Services
         private readonly double _z;
         private readonly double _maxWidth;
         private readonly Dictionary<ElementId, Line> _centerlines = new Dictionary<ElementId, Line>();
+        private readonly List<Wall> _curved;
+        private readonly RefLines _lines;
 
         public FacadeDimensionService(Document doc, View view, DimensionBuilder builder, Report report)
         {
@@ -51,6 +53,8 @@ namespace DetalhaBIM.Services
             foreach (Wall w in _walls) _centerlines[w.Id] = Q.WallCenterline(w);
             _columns = Q.InView(doc, view, BuiltInCategory.OST_Columns)
                 .Concat(Q.InView(doc, view, BuiltInCategory.OST_StructuralColumns)).ToList();
+            _curved = Q.WallsInView(doc, view).Where(CurvedWallService.IsCurved).ToList();
+            _lines = new RefLines(doc, view);
             _z = view.GenLevel?.Elevation ?? 0;
             _maxWidth = _walls.Count > 0 ? _walls.Max(w => w.Width) : Conv.Cm(30);
         }
@@ -76,10 +80,12 @@ namespace DetalhaBIM.Services
         /// <summary>Cotas de uma fachada a partir de uma parede clicada e do lado indicado.</summary>
         public int DimensionFromWall(Wall wall, XYZ sidePoint, FacadeOptions o)
         {
+            if (CurvedWallService.IsCurved(wall) && _view is ViewPlan plan)
+                return new CurvedWallService(_doc, plan, _builder, _report).Dimension(wall, sidePoint, o.FirstOffset);
             Line line = Q.WallCenterline(wall);
             if (line == null)
             {
-                _report.Warn("Paredes curvas não são suportadas por esta ferramenta.");
+                _report.Warn("Tipo de parede não suportado por esta ferramenta.");
                 return 0;
             }
             _centerlines[wall.Id] = line;
@@ -279,8 +285,35 @@ namespace DetalhaBIM.Services
                 walls.AddRange(_faces.Crossing(Near(c, d, Conv.M(1)), c, d, Conv.Mm(1), 2));
                 walls.Add(openings.OrderBy(r => r.Position).First());
                 walls.Add(openings.OrderBy(r => r.Position).Last());
+                walls.AddRange(CurvedEnds(group, t, nOut));
             }
             return (openings, walls);
+        }
+
+        /// <summary>
+        /// Paredes curvas ligadas às pontas do grupo alinhado: referências nas pontas e no ponto
+        /// extremo da face externa do arco, para a cadeia de paredes e a cota total chegarem até elas.
+        /// </summary>
+        private List<RefPos> CurvedEnds(List<Wall> group, XYZ t, XYZ nOut)
+        {
+            var result = new List<RefPos>();
+            if (_curved.Count == 0) return result;
+            List<XYZ> ends = group.SelectMany(w => new[] { Loc(w).GetEndPoint(0), Loc(w).GetEndPoint(1) }).ToList();
+            double reach = _maxWidth + Conv.Cm(10);
+            foreach (Wall cw in _curved)
+            {
+                var arc = (Arc)((LocationCurve)cw.Location).Curve;
+                bool touches = new[] { arc.GetEndPoint(0), arc.GetEndPoint(1) }
+                    .Any(p => ends.Any(q => Geo.Flat(p - q).GetLength() <= reach + cw.Width / 2));
+                if (!touches) continue;
+                XYZ c = arc.Center, pm = arc.Evaluate(0.5, true);
+                Arc inner = CurvedWallService.FaceArc(cw, arc, c);
+                Arc outer = CurvedWallService.FaceArc(cw, arc, c + (pm - c) * 10);
+                Arc face = new[] { inner, outer }.Where(a => a != null)
+                    .OrderByDescending(a => a.Evaluate(0.5, true).DotProduct(nOut)).FirstOrDefault();
+                if (face != null) result.AddRange(CurvedWallService.KeyRefs(_lines, face, t, _z));
+            }
+            return result;
         }
 
         private int Place((List<RefPos> openings, List<RefPos> walls) chains, XYZ t, XYZ nOut, double outer, FacadeOptions o)
@@ -294,13 +327,16 @@ namespace DetalhaBIM.Services
             bool drawB = o.Walls && b.Count >= 2 && !(drawA && Same(a, b)) && !(o.Total && Same(b, total));
             bool drawT = o.Total && total.Count == 2;
 
-            int created = 0, line = 0;
+            int line = 0;
             XYZ Through(int k) => Point(t, nOut, 0, outer + o.FirstOffset + k * o.Spacing);
 
-            if (drawA && _builder.Create(a, t, Through(line++)) != null) created++;
-            if (drawB && _builder.Create(b, t, Through(line++)) != null) created++;
-            if (drawT && _builder.Create(total, t, Through(line)) != null) created++;
-            return created;
+            var dims = new List<Dimension>();
+            if (drawA) dims.Add(_builder.Create(a, t, Through(line++)));
+            if (drawB) dims.Add(_builder.Create(b, t, Through(line++)));
+            if (drawT) dims.Add(_builder.Create(total, t, Through(line)));
+            // Linhas auxiliares das paredes curvas que nenhuma cota usou são apagadas.
+            _lines.DeleteUnused(dims);
+            return dims.Count(d => d != null);
         }
 
         private static bool Same(List<RefPos> x, List<RefPos> y)

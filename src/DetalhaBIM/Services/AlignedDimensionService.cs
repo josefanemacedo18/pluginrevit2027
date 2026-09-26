@@ -53,10 +53,12 @@ namespace DetalhaBIM.Services
         /// <summary>Cotas da face da parede voltada para <paramref name="sidePoint"/>.</summary>
         public int FromWall(Wall wall, XYZ sidePoint, AlignedOptions o)
         {
+            if (CurvedWallService.IsCurved(wall) && _view is ViewPlan plan)
+                return new CurvedWallService(_doc, plan, _builder, _report).Dimension(wall, sidePoint, o.FirstOffset);
             Line cl = Q.WallCenterline(wall);
             if (cl == null)
             {
-                _report.Warn("Paredes curvas não são suportadas pela cota alinhada.");
+                _report.Warn("Tipo de parede não suportado pela cota alinhada.");
                 return 0;
             }
             XYZ t = Geo.FlatDir(cl.Direction);
@@ -93,9 +95,11 @@ namespace DetalhaBIM.Services
                 if (face1 != null) return new RefPos(face1.Reference, face1.Position, face1.Element, 1);
                 return _lines.Across(P(pos), t, pos, 1);
             }
+            _lines.Keep();
             RefPos a = End(e0), b = End(e1);
             if (a == null || b == null)
             {
+                _lines.DeleteUnused(null);
                 _report.Warn("Não foi possível obter as extremidades da face da parede.");
                 return 0;
             }
@@ -125,14 +129,18 @@ namespace DetalhaBIM.Services
 
             int created = 0;
             double offset = o.FirstOffset;
+            var dims = new List<Dimension>();
             foreach (List<RefPos> chain in chains)
             {
-                if (_builder.Create(chain, t, P((e0 + e1) / 2, offset)) != null)
+                Dimension dim = _builder.Create(chain, t, P((e0 + e1) / 2, offset));
+                if (dim != null)
                 {
+                    dims.Add(dim);
                     created++;
                     offset += o.Spacing;
                 }
             }
+            _lines.DeleteUnused(dims);
 
             if (o.Thickness)
             {
@@ -158,10 +166,12 @@ namespace DetalhaBIM.Services
                 _report.Warn("Os dois pontos estão na mesma posição ao longo da direção escolhida.");
                 return false;
             }
+            _lines.Keep();
             RefPos a = _lines.Across(p1, t, p1.DotProduct(t), 1);
             RefPos b = _lines.Across(p2, t, p2.DotProduct(t), 1);
-            if (a == null || b == null) return false;
-            return _builder.Create(new[] { a, b }, t, Geo.WithZ(through, _z)) != null;
+            Dimension dim = a != null && b != null ? _builder.Create(new[] { a, b }, t, Geo.WithZ(through, _z)) : null;
+            _lines.DeleteUnused(dim == null ? null : new[] { dim });
+            return dim != null;
         }
 
         /// <summary>Extensão da face ao longo de t (a direção H da face pode ter qualquer sentido).</summary>

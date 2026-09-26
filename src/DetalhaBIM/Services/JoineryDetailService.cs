@@ -95,7 +95,7 @@ namespace DetalhaBIM.Services
                 _vt.SetName(plan, name + " - PLANTA");
                 ViewTools.SetScale(plan, o.Scale);
                 _vt.ApplyTemplate(plan, o.PlanTemplate, _report);
-                ViewTools.CropToPoints(plan, corners, o.Margin);
+                ViewTools.CropToPoints(plan, corners, o.Margin + Conv.PaperMm(o.DimensionOffset + 6, plan));
                 views.Add(plan);
                 _report.Count("plantas de marcenaria");
             }
@@ -145,7 +145,7 @@ namespace DetalhaBIM.Services
                 _vt.SetName(v, name);
                 ViewTools.SetScale(v, o.Scale);
                 _vt.ApplyTemplate(v, o.ElevationTemplate, _report);
-                ViewTools.CropToPoints(v, corners, o.Margin);
+                ViewTools.CropToPoints(v, corners, o.Margin + Conv.PaperMm(o.DimensionOffset + 6, v));
                 ElevationFactory.SetFarClip(v, dist + depth + back + Conv.Cm(10));
                 if (o.HideMarkers) ElevationFactory.HideMarkerInPlans(v);
                 _report.Count("vistas de marcenaria");

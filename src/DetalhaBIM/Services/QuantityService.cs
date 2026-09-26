@@ -53,7 +53,7 @@ namespace DetalhaBIM.Services
             q.Height = RoomGeo.TopElevation(room) - baseZ;
             if (useCeiling)
             {
-                double? c = CeilingHeight(room, baseZ);
+                double? c = CeilingHeight(room);
                 if (c.HasValue)
                 {
                     q.Height = c.Value;
@@ -101,24 +101,7 @@ namespace DetalhaBIM.Services
             return q;
         }
 
-        /// <summary>Altura do forro mais baixo sobre o ambiente, se houver.</summary>
-        private double? CeilingHeight(Room room, double baseZ)
-        {
-            XYZ p = RoomGeo.Point(room);
-            if (p == null) return null;
-            _ceilings ??= Q.All<Ceiling>(_doc);
-            double top = RoomGeo.TopElevation(room) + Conv.Cm(50);
-            double? best = null;
-            foreach (Ceiling c in _ceilings)
-            {
-                BoundingBoxXYZ bb = c.get_BoundingBox(null);
-                if (bb == null || p.X < bb.Min.X || p.X > bb.Max.X || p.Y < bb.Min.Y || p.Y > bb.Max.Y) continue;
-                if (bb.Min.Z <= baseZ + Conv.Cm(50) || bb.Min.Z > top) continue;
-                double h = bb.Min.Z - baseZ;
-                if (best == null || h < best) best = h;
-            }
-            return best;
-        }
+        private double? CeilingHeight(Room room) => RoomGeo.CeilingHeight(_doc, room, _ceilings ??= Q.All<Ceiling>(_doc));
 
         public static string[] Row(RoomQuantities q, double lossFloor, double lossWall)
         {

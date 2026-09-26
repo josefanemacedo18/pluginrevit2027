@@ -141,6 +141,54 @@ namespace DetalhaBIM.Core
             }
         }
 
+        /// <summary>
+        /// Topo do piso modelado dentro do ambiente (o mais alto até 30 cm da base do ambiente), ou
+        /// null se não houver. <paramref name="exclude"/> ignora pisos (ex.: a própria paginação).
+        /// </summary>
+        public static double? FloorTop(Document doc, Room room, Func<Floor, bool> exclude = null, IList<Floor> floors = null)
+        {
+            XYZ p = Point(room);
+            if (p == null) return null;
+            double baseZ = BaseElevation(room);
+            double? best = null;
+            foreach (Floor fl in floors ?? Q.All<Floor>(doc))
+            {
+                if (exclude != null && exclude(fl)) continue;
+                BoundingBoxXYZ bb = fl.get_BoundingBox(null);
+                if (bb == null || p.X < bb.Min.X || p.X > bb.Max.X || p.Y < bb.Min.Y || p.Y > bb.Max.Y) continue;
+                if (bb.Max.Z < baseZ - Conv.Cm(30) || bb.Max.Z > baseZ + Conv.Cm(30)) continue;
+                if (!Contains(room, (bb.Min + bb.Max) / 2) && ElementScan.Of(fl, null).TopFaceAt(p, double.MaxValue) == null) continue;
+                if (best == null || bb.Max.Z > best.Value) best = bb.Max.Z;
+            }
+            return best;
+        }
+
+        /// <summary>Altura (a partir da base do ambiente) do forro mais baixo sobre o ambiente, ou null.</summary>
+        public static double? CeilingHeight(Document doc, Room room, IList<Ceiling> ceilings = null)
+        {
+            XYZ p = Point(room);
+            if (p == null) return null;
+            double baseZ = BaseElevation(room);
+            double top = TopElevation(room) + Conv.Cm(50);
+            double? best = null;
+            foreach (Ceiling c in ceilings ?? Q.All<Ceiling>(doc))
+            {
+                BoundingBoxXYZ bb = c.get_BoundingBox(null);
+                if (bb == null || p.X < bb.Min.X || p.X > bb.Max.X || p.Y < bb.Min.Y || p.Y > bb.Max.Y) continue;
+                if (bb.Min.Z <= baseZ + Conv.Cm(50) || bb.Min.Z > top) continue;
+                double h = bb.Min.Z - baseZ;
+                if (best == null || h < best) best = h;
+            }
+            return best;
+        }
+
+        /// <summary>Ambiente que contém o ponto (em planta), entre os ambientes do nível informado.</summary>
+        public static Room At(Document doc, XYZ p, ElementId levelId)
+        {
+            return Q.Rooms(doc).Where(IsPlaced).Where(r => levelId == null || r.LevelId == levelId)
+                .FirstOrDefault(r => Contains(r, p));
+        }
+
         public static bool Contains(Room r, XYZ p)
         {
             return r.IsPointInRoom(new XYZ(p.X, p.Y, BaseElevation(r) + Conv.Cm(50)));

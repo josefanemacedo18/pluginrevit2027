@@ -40,21 +40,21 @@ Passo a passo detalhado e solução de problemas: [`docs/COMO-INSTALAR.txt`](doc
 
 | Painel | Ferramenta | O que faz |
 |---|---|---|
-| **Cotas** | Cotas por Ambiente | Cria cadeias internas face a face (horizontal e vertical) em cada ambiente e cota os vãos de portas e janelas ao longo das paredes. |
-| | Cotas por Parede | Você clica em uma parede e o plugin encontra sozinho as paredes alinhadas, os vãos e as paredes internas. Gera 3 linhas: vãos, paredes e total. |
-| | Cotas Externas | Cria as cotas externas do pavimento inteiro, nos 4 lados. Também funciona em edificações rotacionadas. |
+| **Cotas** | Cotas por Ambiente | Cria cadeias internas face a face (horizontal e vertical) em cada ambiente, **chegando às pontas e aos extremos de paredes curvas**, cota paredes inclinadas e os vãos de portas e janelas ao longo das paredes. |
+| | Cotas por Parede | Você clica em uma parede e o plugin encontra sozinho as paredes alinhadas, os vãos e as paredes internas. Gera 3 linhas: vãos, paredes e total, **ligadas às paredes curvas** das pontas. Em uma **parede curva**: raio, comprimento do arco e corda. |
+| | Cotas Externas | Cria as cotas externas do pavimento inteiro, nos 4 lados, incluindo as paredes curvas ligadas às fachadas. Também funciona em edificações rotacionadas. |
 | | Por Seleção | Cria uma única cadeia com paredes, eixos, pilares, esquadrias e planos selecionados. |
 | | Por Pontos | Você clica em 2 pontos e o plugin cota tudo o que a linha atravessar. |
 | | Níveis de Piso | Insere a cota de nível do piso acabado em cada ambiente. |
-| | **Cota Alinhada** *(novo)* | Cota paralela à parede **em qualquer inclinação**: vãos, paredes que chegam e comprimento total da face clicada, medindo até os cantos reais mesmo com pontas chanfradas. No modo livre, mede entre dois pontos quaisquer alinhada a uma parede, eixo ou linha. |
-| | **Cotar Objetos 3D** *(novo)* | Cota largura, profundidade e altura de **paredes e de qualquer família** (móveis, marcenaria, louças, equipamentos) em **vistas 3D isométricas** — a vista é travada automaticamente —, plantas, cortes e elevações. |
+| | Cota Alinhada | Cota paralela à parede **em qualquer inclinação**: vãos, paredes que chegam e comprimento total da face clicada, medindo até os cantos reais mesmo com pontas chanfradas. Em paredes curvas: raio, arco e corda. No modo livre, mede entre dois pontos quaisquer alinhada a uma parede, eixo ou linha. |
+| | Cotar Componentes | Cota largura, profundidade e altura de **componentes** (mobiliário, marcenaria, blocos, louças, equipamentos) e de paredes em **vistas 3D isométricas** — a vista é travada automaticamente —, plantas, cortes e elevações. Cada cota é conferida; famílias sem referências cotáveis são medidas pelas extremidades. |
 | **Vistas** | Vistas por Ambiente | Cria planta, forro, uma elevação por parede e o isométrico de cada ambiente. As vistas já saem recortadas, nomeadas, com modelo de vista, cotadas e em prancha. |
 | | Plantas Técnicas | Cria as plantas de layout, cotas, pisos, forro, pontos etc. para vários níveis de uma vez, já com etiquetas e cotas. |
 | | Vistas de Esquadrias | Cria uma elevação de cada código (P01, J01…) cotada com largura, altura e peitoril, e monta a prancha. |
 | | Isométrico / Elevações | Atalhos de um clique para os ambientes selecionados. |
 | **Interiores** *(novo)* | Rodapés | Rodapé em todo o contorno dos ambientes: altura, espessura e material à escolha, cantos resolvidos, contorna pilares, é interrompido nas portas e fica apoiado sobre o piso. Também pode usar um perfil de parede (*Wall Sweep*) do projeto. Informa o total em metros. |
-| | Paginação de Piso | Desenha as juntas do revestimento em cada ambiente (peça, junta, ângulo — inclusive diagonal — e ponto de partida) contornando pilares, e conta **peças inteiras e cortadas**, área com perda e caixas. |
-| | Acabamentos | Pinta paredes, piso e teto de cada ambiente com o material escolhido (ferramenta Pintura) e preenche os acabamentos do quadro (piso, parede, teto e rodapé). |
+| | Paginação de Piso | **Modela o piso** de revestimento placa por placa (placa, junta real, espessura, material, ângulo — inclusive diagonal — e ponto de partida), contornando pilares, visível em planta, 3D e cortes; conta **placas inteiras e cortadas**, área com perda e caixas. |
+| | Acabamentos | Escolha o material e **clique nas faces** (paredes, pisos, forros) ou dentro dos ambientes: **pintura** na face ou **revestimento modelado** na parede (cerâmica até 1,20 m, até o forro...), com portas e janelas recortadas. |
 | | Detalhar Marcenaria | Para cada móvel ou bancada: planta, vista frontal, vista lateral e isométrico recortados, cotados e montados em prancha. |
 | | Locação | Cota móveis, marcenaria, louças, tomadas, interruptores e luminárias até as paredes; nas elevações, também a altura em relação ao piso acabado. |
 | | Levantamento | Quantitativo por ambiente: piso, perímetro, paredes (sem os vãos, até o forro), teto e rodapé (sem as portas), com perda. Copia para o Excel ou exporta CSV. |
@@ -151,7 +151,7 @@ Em **Debug** (`dotnet build`), o pacote é instalado automaticamente em
 8. **Vistas de Esquadrias** e **Quadros e Tabelas** — monte o caderno de esquadrias e os quadros de áreas.
 9. **Interiores** — **Pisos por Ambiente**, **Rodapés**, **Acabamentos** e **Paginação de Piso**; depois
    **Locação** dos móveis e pontos, **Detalhar Marcenaria** e **Levantamento** para o orçamento.
-10. **Cota Alinhada** e **Cotar Objetos 3D** — cotas de paredes inclinadas e dos isométricos.
+10. **Cota Alinhada** e **Cotar Componentes** — cotas de paredes inclinadas e curvas e dos isométricos.
 11. **Criar Pranchas** — coloque em prancha o que ainda faltar.
 
 ---
@@ -208,13 +208,17 @@ Destaques da implementação:
 
 ## Limitações conhecidas
 
-- As cotas automáticas dependem de **ambientes delimitados** e de **paredes retas**. Paredes curvas e paredes de
-  modelos vinculados são ignoradas, e o relatório final avisa quando isso acontece.
+- As cotas automáticas dependem de **ambientes delimitados**. Paredes curvas entram pelas pontas e pelos pontos
+  extremos (e têm raio/arco/corda ao serem clicadas); paredes de modelos vinculados não são cotadas.
 - As cotas das **Vistas de Esquadrias** usam os planos de referência *Esquerda/Direita/Superior/Inferior*
   das famílias. Famílias sem esses planos ficam sem cota, e o relatório final avisa.
-- **Cotar Objetos 3D** e **Locação** tentam, nesta ordem, os planos de referência da família, as faces e as
-  arestas. Famílias sem nenhuma referência cotável na direção pedida são listadas no relatório.
-- **Acabamentos** pinta a face inteira da parede. Se a mesma face atravessa vários ambientes, use
+- **Cotar Componentes** e **Locação** tentam, nesta ordem, os planos de referência da família, as faces e as
+  arestas (sempre da geometria do símbolo, as únicas que o Revit aceita em cotas). Se a família não tiver
+  nenhuma, a cota é feita por **linhas auxiliares invisíveis** nas extremidades: fica correta, mas não
+  acompanha o objeto se ele for movido (o relatório avisa).
+- **Paginação de Piso** no método recomendado usa **peças** (Parts) do Revit: a planta e as vistas 3D são
+  ajustadas para *Mostrar peças*; em outras vistas, ajuste *Visibilidade de peças* nas propriedades da vista.
+- **Acabamentos** (pintura) pinta a face inteira da parede. Se a mesma face atravessa vários ambientes, use
   *Dividir face* do Revit antes, para ter materiais diferentes em cada ambiente.
 - O **Perfil de parede** (método alternativo dos Rodapés) percorre a parede inteira daquele lado, como no
   Revit. Para rodapé só dentro do ambiente e cortado nas portas, use o método **Parede de rodapé**.

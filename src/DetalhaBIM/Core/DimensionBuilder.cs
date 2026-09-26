@@ -124,18 +124,95 @@ namespace DetalhaBIM.Core
         }
 
         /// <summary>
-        /// Tenta cada conjunto de referências na ordem (ex.: planos de referência da família,
-        /// depois faces, depois arestas) e retorna a primeira cota aceita pelo Revit.
+        /// Tenta cada conjunto de referências na ordem (ex.: planos de referência da família, faces,
+        /// arestas e, por último, linhas de referência) e retorna a primeira cota aceita pelo Revit
+        /// <b>e que meça o esperado</b>: a cota criada é conferida com a distância entre as posições
+        /// das referências; se não bater (referência inválida ou medindo outra coisa), é apagada e a
+        /// próxima alternativa é tentada.
         /// </summary>
-        public Dimension CreateFirst(IEnumerable<IList<RefPos>> candidates, XYZ dir, XYZ through)
+        public Dimension CreateFirst(IEnumerable<IList<RefPos>> candidates, XYZ dir, XYZ through, double tolerance = -1)
         {
+            double tol = tolerance > 0 ? tolerance : Conv.Mm(3);
+            XYZ d = dir.Normalize();
+            XYZ p = OnViewPlane(through);
+            var tried = new List<List<RefPos>>();
             foreach (IList<RefPos> refs in candidates)
             {
                 if (refs == null || refs.Count(r => r?.Reference != null) < 2) continue;
-                Dimension d = Create(refs, dir, through);
-                if (d != null) return d;
+                List<RefPos> list = Dedupe(refs);
+                if (list.Count < 2) continue;
+                tried.Add(list);
+                double expected = list.Max(r => r.Position) - list.Min(r => r.Position);
+                Dimension dim = TryCreate(list, d, p);
+                if (dim == null) continue;
+                if (Matches(dim, expected, tol)) return dim;
+                Delete(dim);
+            }
+
+            // Plano B (como nas demais cadeias): se o Revit recusou alguma referência, refaz a cadeia só
+            // com as aceitas — começando pela última alternativa, a mais segura (linhas auxiliares).
+            for (int i = tried.Count - 1; i >= 0; i--)
+            {
+                if (tried[i].Count < 3) continue; // pares já foram tentados inteiros
+                Dimension dim = Create(tried[i], d, p);
+                if (dim != null) return dim;
             }
             return null;
+        }
+
+        private void Delete(Dimension d)
+        {
+            try
+            {
+                _doc.Delete(d.Id);
+            }
+            catch
+            {
+                // Cota já removida pelo Revit.
+            }
+        }
+
+        /// <summary>
+        /// Confere se a cota mede o total esperado (soma dos segmentos). Lê o valor calculado na criação;
+        /// só regenera o documento se o valor ainda não estiver disponível.
+        /// </summary>
+        private bool Matches(Dimension d, double expected, double tol)
+        {
+            double? total = Total(d);
+            if (total == null)
+            {
+                try
+                {
+                    _doc.Regenerate();
+                }
+                catch
+                {
+                    return false;
+                }
+                total = Total(d);
+            }
+            return total != null && total.Value > Conv.Mm(1) && Math.Abs(total.Value - expected) <= tol;
+        }
+
+        private static double? Total(Dimension d)
+        {
+            try
+            {
+                if (!d.IsValidObject) return null;
+                if (d.NumberOfSegments == 0) return d.Value;
+                double total = 0;
+                foreach (DimensionSegment seg in d.Segments)
+                {
+                    double? v = seg.Value;
+                    if (v == null) return null;
+                    total += v.Value;
+                }
+                return total;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

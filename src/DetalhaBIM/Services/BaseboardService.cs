@@ -25,6 +25,15 @@ namespace DetalhaBIM.Services
         /// <summary>Contorna pilares e demais elementos delimitadores (não só paredes).</summary>
         public bool AroundColumns { get; set; } = true;
         public bool SkipExisting { get; set; } = true;
+        /// <summary>Texto usado no "Comentários" das peças criadas (RODAPÉ, REVESTIMENTO...).</summary>
+        public string Label { get; set; } = BaseboardService.Marker;
+        /// <summary>
+        /// Revestimento: portas e janelas viram aberturas na camada (só divide a faixa quando o vão
+        /// ocupa toda a altura dela).
+        /// </summary>
+        public bool Holes { get; set; }
+        /// <summary>Revestimento: altura até o forro (ou até o topo do ambiente) em vez de <see cref="Height"/>.</summary>
+        public bool ToCeiling { get; set; }
     }
 
     /// <summary>
@@ -41,6 +50,11 @@ namespace DetalhaBIM.Services
         private readonly HashSet<string> _sweepDone = new HashSet<string>();
         private readonly FaceFinder _faces = new FaceFinder(null);
         private List<Floor> _floors;
+        private List<Ceiling> _ceilings;
+
+        private double? FloorTopOf(Room room) => RoomGeo.FloorTop(_doc, room, null, _floors ??= Q.All<Floor>(_doc));
+
+        private double? CeilingOf(Room room) => RoomGeo.CeilingHeight(_doc, room, _ceilings ??= Q.All<Ceiling>(_doc));
 
         public BaseboardService(Document doc, Report report)
         {
@@ -60,21 +74,40 @@ namespace DetalhaBIM.Services
             public List<(double a, double b)> Cuts = new List<(double, double)>();
         }
 
-        public static string Comment(Room room) => Marker + " - " + RoomGeo.Label(room);
+        public static string Comment(Room room, string label = Marker) => label + " - " + RoomGeo.Label(room);
 
-        /// <summary>Cria os rodapés de um ambiente. Deve ser chamado dentro de uma transação.</summary>
+        private double _height;
+        private string _comment;
+
+        /// <summary>Cria os rodapés (ou o revestimento) de um ambiente. Deve ser chamado dentro de uma transação.</summary>
         public int Create(Room room, BaseboardOptions o)
         {
+            _comment = Comment(room, o.Label);
             if (o.SkipExisting && HasBaseboards(room))
             {
-                _report.Count("ambientes que já tinham rodapé (ignorados)");
+                _report.Count("ambientes que já tinham " + o.Label.ToLowerInvariant() + " (ignorados)");
                 return 0;
             }
             double baseZ = FloorTop(room, o) + o.BaseOffset;
+            _height = o.Height;
+            if (o.ToCeiling)
+            {
+                double top = RoomGeo.BaseElevation(room) + (CeilingOf(room) ?? (RoomGeo.TopElevation(room) - RoomGeo.BaseElevation(room)));
+                _height = top - baseZ;
+            }
+            if (_height < Conv.Cm(1))
+            {
+                _report.Warn($"Ambiente {RoomGeo.Label(room)}: altura disponível insuficiente.");
+                return 0;
+            }
             int created = 0;
             foreach (IList<BoundarySegment> loop in RoomGeo.Segments(room))
             {
                 List<Piece> pieces = Pieces(room, loop, o);
+                foreach (Piece p in pieces)
+                {
+                    if (p.Active && p.Host is Wall hw && p.Curve is Line hl) p.Cuts = Cuts(hw, hl, o, baseZ);
+                }
                 created += o.UseSweep ? Sweeps(room, pieces, o, baseZ) : Walls(room, pieces, o, baseZ);
             }
             return created;
@@ -82,7 +115,7 @@ namespace DetalhaBIM.Services
 
         private bool HasBaseboards(Room room)
         {
-            string c = Comment(room);
+            string c = _comment;
             return new FilteredElementCollector(_doc).OfClass(typeof(Wall)).Cast<Wall>()
                 .Any(w => w.LevelId == room.LevelId && Q.Text(w, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS) == c);
         }
@@ -92,32 +125,7 @@ namespace DetalhaBIM.Services
         {
             double baseZ = RoomGeo.BaseElevation(room);
             if (!o.OnFloor) return baseZ;
-            XYZ p = RoomGeo.Point(room);
-            if (p == null) return baseZ;
-            _floors ??= Q.All<Floor>(_doc);
-            double best = double.MinValue;
-            foreach (Floor fl in _floors)
-            {
-                BoundingBoxXYZ bb = fl.get_BoundingBox(null);
-                if (bb == null || p.X < bb.Min.X || p.X > bb.Max.X || p.Y < bb.Min.Y || p.Y > bb.Max.Y) continue;
-                if (bb.Max.Z < baseZ - Conv.Cm(30) || bb.Max.Z > baseZ + Conv.Cm(30)) continue;
-                if (!RoomGeo.Contains(room, (bb.Min + bb.Max) / 2) && !Covers(fl, p)) continue;
-                best = Math.Max(best, bb.Max.Z);
-            }
-            return best > double.MinValue ? best : baseZ;
-        }
-
-        private static bool Covers(Floor fl, XYZ p)
-        {
-            try
-            {
-                ElementScan scan = ElementScan.Of(fl, null);
-                return scan.TopFaceAt(p, double.MaxValue) != null;
-            }
-            catch
-            {
-                return false;
-            }
+            return FloorTopOf(room) ?? baseZ;
         }
 
         // ================================================================== contorno
@@ -134,7 +142,6 @@ namespace DetalhaBIM.Services
                 bool active = e is Wall || linked || (o.AroundColumns && e != null && !(e is CurveElement));
                 var piece = new Piece { Curve = c, Host = e, Active = active, Inward = Inward(room, c) };
                 if (linked) _report.Warn("Paredes de modelos vinculados recebem rodapé, mas as portas delas não são detectadas.");
-                if (active && e is Wall wall && c is Line line) piece.Cuts = Cuts(wall, line, o);
                 list.Add(piece);
             }
             return list;
@@ -150,11 +157,41 @@ namespace DetalhaBIM.Services
             return RoomGeo.Contains(room, mid + n * Conv.Cm(3)) ? n : n.Negate();
         }
 
-        /// <summary>Trechos (posições ao longo do segmento) ocupados por portas e janelas baixas.</summary>
-        private List<(double, double)> Cuts(Wall wall, Line seg, BaseboardOptions o)
+        /// <summary>Vão de porta/janela na face: posições ao longo do trecho e cotas absolutas.</summary>
+        private class Opening
+        {
+            public double A, B, Bottom, Top;
+            public bool Door;
+        }
+
+        /// <summary>Trechos (posições ao longo do segmento) em que a faixa é interrompida.</summary>
+        private List<(double, double)> Cuts(Wall wall, Line seg, BaseboardOptions o, double baseZ)
         {
             var cuts = new List<(double, double)>();
-            if (!o.CutAtDoors && !o.CutAtLowWindows) return cuts;
+            foreach (Opening op in Openings(wall, seg))
+            {
+                if (o.Holes)
+                {
+                    // Revestimento: divide a faixa nos vãos que encostam na base (portas) ou no topo; o
+                    // trecho acima da porta / abaixo da janela vira uma peça própria (Fillers).
+                    if (TouchesEdge(op, baseZ)) cuts.Add((op.A, op.B));
+                }
+                else if (op.Door ? o.CutAtDoors : o.CutAtLowWindows && op.Bottom < baseZ + _height)
+                {
+                    cuts.Add((op.A, op.B));
+                }
+            }
+            return cuts;
+        }
+
+        private bool TouchesEdge(Opening op, double baseZ) =>
+            op.Bottom < baseZ + _height && op.Top > baseZ
+            && (op.Bottom <= baseZ + Conv.Cm(1) || op.Top >= baseZ + _height - Conv.Cm(1));
+
+        /// <summary>Portas e janelas da parede que ficam neste trecho do contorno.</summary>
+        private List<Opening> Openings(Wall wall, Line seg)
+        {
+            var result = new List<Opening>();
             XYZ t = Geo.FlatDir(seg.Direction);
             double s0 = seg.GetEndPoint(0).DotProduct(t), s1 = seg.GetEndPoint(1).DotProduct(t);
             double lo = Math.Min(s0, s1), hi = Math.Max(s0, s1);
@@ -162,13 +199,6 @@ namespace DetalhaBIM.Services
 
             foreach (FamilyInstance fi in Q.OpeningsIn(_doc, new[] { wall.Id }))
             {
-                bool door = fi.Category?.BuiltInCategory == BuiltInCategory.OST_Doors;
-                if (door && !o.CutAtDoors) continue;
-                if (!door)
-                {
-                    double sill = Q.Double(fi, BuiltInParameter.INSTANCE_SILL_HEIGHT_PARAM) ?? double.MaxValue;
-                    if (!o.CutAtLowWindows || sill > o.BaseOffset + o.Height) continue;
-                }
                 XYZ p = Geo.ElementPoint(fi);
                 if (p == null) continue;
                 // A esquadria precisa estar neste trecho do contorno (e não em outra face da parede).
@@ -188,9 +218,13 @@ namespace DetalhaBIM.Services
                     a = c - half;
                     b = c + half;
                 }
-                cuts.Add((a, b));
+                bool door = fi.Category?.BuiltInCategory == BuiltInCategory.OST_Doors;
+                double levelZ = Q.Level(_doc, fi)?.Elevation ?? 0;
+                double sill = door ? 0 : Q.Double(fi, BuiltInParameter.INSTANCE_SILL_HEIGHT_PARAM) ?? 0;
+                double height = Q.OpeningHeight(fi) ?? Conv.M(2.1);
+                result.Add(new Opening { A = a, B = b, Bottom = levelZ + sill, Top = levelZ + sill + height, Door = door });
             }
-            return cuts;
+            return result;
         }
 
         // ================================================================== paredes finas
@@ -212,7 +246,7 @@ namespace DetalhaBIM.Services
                 {
                     // Trechos curvos: desloca a curva inteira, sem recortes de portas.
                     Curve off = OffsetCurve(p.Curve, p.Inward, half);
-                    if (off != null && NewWall(room, off, o, baseZ, false, false)) created++;
+                    if (off != null && NewWall(level, off, o, baseZ, false, false, RoomGeo.Label(room)) != null) created++;
                     continue;
                 }
 
@@ -236,32 +270,7 @@ namespace DetalhaBIM.Services
                 }
 
                 // Remove os vãos das portas.
-                var segments = new List<(double a, double b, bool ja, bool jb)> { (start, end, joinStart, joinEnd) };
-                foreach ((double a, double b) cut in p.Cuts.OrderBy(c => c.a))
-                {
-                    var next2 = new List<(double, double, bool, bool)>();
-                    foreach ((double a, double b, bool ja, bool jb) s in segments)
-                    {
-                        double lo = Math.Min(s.a, s.b), hi = Math.Max(s.a, s.b);
-                        if (cut.b <= lo || cut.a >= hi)
-                        {
-                            next2.Add(s);
-                            continue;
-                        }
-                        bool forward = s.a <= s.b;
-                        if (forward)
-                        {
-                            if (cut.a > s.a) next2.Add((s.a, cut.a, s.ja, false));
-                            if (cut.b < s.b) next2.Add((cut.b, s.b, false, s.jb));
-                        }
-                        else
-                        {
-                            if (cut.b < s.a) next2.Add((s.a, cut.b, s.ja, false));
-                            if (cut.a > s.b) next2.Add((cut.a, s.b, false, s.jb));
-                        }
-                    }
-                    segments = next2;
-                }
+                List<(double a, double b, bool ja, bool jb)> segments = Split(start, end, joinStart, joinEnd, p.Cuts);
 
                 XYZ o0 = centre.GetEndPoint(0);
                 double t0 = o0.DotProduct(t);
@@ -269,10 +278,45 @@ namespace DetalhaBIM.Services
                 {
                     if (Math.Abs(s.b - s.a) < Conv.Cm(1)) continue;
                     Line l = Line.CreateBound(o0 + t * (s.a - t0), o0 + t * (s.b - t0));
-                    if (NewWall(room, l, o, baseZ, s.ja, s.jb)) created++;
+                    Wall made = NewWall(level, l, o, baseZ, s.ja, s.jb, RoomGeo.Label(room));
+                    if (made == null) continue;
+                    created++;
+                    if (o.Holes && p.Host is Wall host) AddHoles(made, host, line, l, baseZ);
                 }
+                if (o.Holes && p.Host is Wall fillHost) Fillers(level, centre, fillHost, line, o, baseZ, RoomGeo.Label(room));
             }
             return created;
+        }
+
+        /// <summary>Divide o trecho [start, end] removendo os intervalos dos vãos.</summary>
+        private static List<(double a, double b, bool ja, bool jb)> Split(double start, double end, bool joinStart, bool joinEnd, List<(double a, double b)> cuts)
+        {
+            var segments = new List<(double a, double b, bool ja, bool jb)> { (start, end, joinStart, joinEnd) };
+            foreach ((double a, double b) cut in cuts.OrderBy(c => c.a))
+            {
+                var next = new List<(double, double, bool, bool)>();
+                foreach ((double a, double b, bool ja, bool jb) s in segments)
+                {
+                    double lo = Math.Min(s.a, s.b), hi = Math.Max(s.a, s.b);
+                    if (cut.b <= lo || cut.a >= hi)
+                    {
+                        next.Add(s);
+                        continue;
+                    }
+                    if (s.a <= s.b)
+                    {
+                        if (cut.a > s.a) next.Add((s.a, cut.a, s.ja, false));
+                        if (cut.b < s.b) next.Add((cut.b, s.b, false, s.jb));
+                    }
+                    else
+                    {
+                        if (cut.b < s.a) next.Add((s.a, cut.b, s.ja, false));
+                        if (cut.a > s.b) next.Add((cut.a, s.b, false, s.jb));
+                    }
+                }
+                segments = next;
+            }
+            return segments;
         }
 
         /// <summary>
@@ -313,27 +357,57 @@ namespace DetalhaBIM.Services
             }
         }
 
-        private bool NewWall(Room room, Curve curve, BaseboardOptions o, double baseZ, bool joinStart, bool joinEnd)
+        private Wall NewWall(Level level, Curve curve, BaseboardOptions o, double baseZ, bool joinStart, bool joinEnd, string where, double height = -1)
         {
-            Curve flat = Flatten(curve, room.Level.Elevation);
-            if (flat == null) return false;
+            Curve flat = Flatten(curve, level.Elevation);
+            if (flat == null) return null;
+            double h = height > 0 ? height : _height;
             Wall w = null;
             bool ok = Tx.TrySub(_doc, () =>
             {
-                w = Wall.Create(_doc, flat, o.WallTypeId, room.LevelId, o.Height, baseZ - room.Level.Elevation, false, false);
+                w = Wall.Create(_doc, flat, o.WallTypeId, level.Id, h, baseZ - level.Elevation, false, false);
                 Q.Set(w, BuiltInParameter.WALL_ATTR_ROOM_BOUNDING, 0);
-                Q.Set(w, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, Comment(room));
+                Q.Set(w, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, _comment);
                 if (!joinStart) WallUtils.DisallowWallJoinAtEnd(w, 0);
                 if (!joinEnd) WallUtils.DisallowWallJoinAtEnd(w, 1);
                 Recentre(w, flat);
             });
             if (!ok)
             {
-                _report.Warn($"Ambiente {RoomGeo.Label(room)}: um trecho de rodapé não pôde ser criado.");
-                return false;
+                _report.Warn($"{where}: um trecho de {o.Label.ToLowerInvariant()} não pôde ser criado.");
+                return null;
             }
-            Length += flat.Length;
-            return true;
+            if (height <= 0) Length += flat.Length;
+            Area += flat.Length * h;
+            return w;
+        }
+
+        /// <summary>Área (pés²) de revestimento criada, sem descontar as aberturas.</summary>
+        public double Area { get; private set; }
+
+        /// <summary>Recorta na faixa criada as janelas (e portas) que não a atravessam por inteiro.</summary>
+        private void AddHoles(Wall strip, Wall host, Line boundary, Line centre, double baseZ)
+        {
+            XYZ t = Geo.FlatDir(centre.Direction);
+            double c0 = Math.Min(centre.GetEndPoint(0).DotProduct(t), centre.GetEndPoint(1).DotProduct(t));
+            double c1 = Math.Max(centre.GetEndPoint(0).DotProduct(t), centre.GetEndPoint(1).DotProduct(t));
+            double zTop = baseZ + _height;
+            foreach (Opening op in Openings(host, boundary))
+            {
+                double a = Math.Max(op.A, c0), b = Math.Min(op.B, c1);
+                double z0 = Math.Max(op.Bottom, baseZ), z1 = Math.Min(op.Top, zTop);
+                if (b - a < Conv.Cm(1) || z1 - z0 < Conv.Cm(1)) continue;
+                if (TouchesEdge(op, baseZ)) continue; // já dividida (com peça acima/abaixo em Fillers)
+                XYZ P(double pos, double z) => Geo.WithZ(centre.GetEndPoint(0) + t * (pos - centre.GetEndPoint(0).DotProduct(t)), z);
+                bool ok = false;
+                foreach (double inset in new[] { 0.0, Conv.Mm(1) })
+                {
+                    ok = Tx.TrySub(_doc, () => _doc.Create.NewOpening(strip, P(a + inset, z0 + inset), P(b - inset, z1 - inset)));
+                    if (ok) break;
+                }
+                if (ok) _report.Count("vãos recortados no revestimento");
+                else _report.Warn($"Um vão da parede {host.Id} não pôde ser recortado no revestimento.");
+            }
         }
 
         /// <summary>Garante que a linha central da parede criada coincida com a curva desejada.</summary>
@@ -360,6 +434,109 @@ namespace DetalhaBIM.Services
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Peças de revestimento sobre as portas (entre o topo do vão e o topo da faixa) e sob as
+        /// janelas que passam do topo da faixa (entre a base e o peitoril).
+        /// </summary>
+        private int Fillers(Level level, Line centre, Wall host, Line boundary, BaseboardOptions o, double baseZ, string where)
+        {
+            int n = 0;
+            XYZ t = Geo.FlatDir(centre.Direction);
+            XYZ start = centre.GetEndPoint(0);
+            double t0 = start.DotProduct(t);
+            double c0 = Math.Min(t0, centre.GetEndPoint(1).DotProduct(t)), c1 = Math.Max(t0, centre.GetEndPoint(1).DotProduct(t));
+            double zTop = baseZ + _height;
+            foreach (Opening op in Openings(host, boundary))
+            {
+                if (!TouchesEdge(op, baseZ)) continue;
+                double a = Math.Max(op.A, c0), b = Math.Min(op.B, c1);
+                if (b - a < Conv.Cm(1)) continue;
+                double fb, fh;
+                if (op.Bottom <= baseZ + Conv.Cm(1) && op.Top < zTop - Conv.Cm(1))
+                {
+                    fb = op.Top;
+                    fh = zTop - op.Top;
+                }
+                else if (op.Top >= zTop - Conv.Cm(1) && op.Bottom > baseZ + Conv.Cm(1))
+                {
+                    fb = baseZ;
+                    fh = op.Bottom - baseZ;
+                }
+                else
+                {
+                    continue; // o vão ocupa toda a altura
+                }
+                if (fh < Conv.Cm(1)) continue;
+                Line l = Line.CreateBound(start + t * (a - t0), start + t * (b - t0));
+                if (NewWall(level, l, o, fb, false, false, where, fh) != null) n++;
+            }
+            if (n > 0) _report.Count("peças de revestimento sobre portas / sob janelas", n);
+            return n;
+        }
+
+        // ================================================================== revestimento numa face
+
+        /// <summary>
+        /// Revestimento modelado sobre uma face de parede clicada: camada da largura da face, da base
+        /// (piso acabado) até a altura pedida ou até o forro, com portas e janelas recortadas.
+        /// </summary>
+        public int CladFace(Wall host, PlanarFace pf, BaseboardOptions o)
+        {
+            if (pf == null || Math.Abs(pf.FaceNormal.Z) > 0.01)
+            {
+                _report.Warn("Revestimento modelado: clique na face vertical e plana de uma parede.");
+                return 0;
+            }
+            Level level = _doc.GetElement(host.LevelId) as Level;
+            if (level == null) return 0;
+            XYZ n = Geo.FlatDir(pf.FaceNormal);
+            XYZ h = XYZ.BasisZ.CrossProduct(n).Normalize();
+            double hMin = double.MaxValue, hMax = double.MinValue, zMin = double.MaxValue, zMax = double.MinValue;
+            foreach (XYZ v in pf.Triangulate().Vertices)
+            {
+                hMin = Math.Min(hMin, v.DotProduct(h));
+                hMax = Math.Max(hMax, v.DotProduct(h));
+                zMin = Math.Min(zMin, v.Z);
+                zMax = Math.Max(zMax, v.Z);
+            }
+            if (hMax - hMin < Conv.Cm(2)) return 0;
+            XYZ origin = pf.Origin;
+            XYZ At(double hv, double off) => Geo.WithZ(origin + n * off + h * (hv - origin.DotProduct(h)), level.Elevation);
+
+            Room room = RoomGeo.At(_doc, At((hMin + hMax) / 2, Conv.Cm(15)), host.LevelId);
+            string where = room != null ? "Ambiente " + RoomGeo.Label(room) : "Parede " + host.Id;
+            _comment = o.Label + (room != null ? " - " + RoomGeo.Label(room) : string.Empty);
+
+            double baseZ = (o.OnFloor && room != null ? FloorTopOf(room) : null) ?? zMin;
+            baseZ = Math.Max(baseZ, zMin) + o.BaseOffset;
+            double top = o.ToCeiling
+                ? room != null ? RoomGeo.BaseElevation(room) + (CeilingOf(room) ?? (RoomGeo.TopElevation(room) - RoomGeo.BaseElevation(room))) : zMax
+                : baseZ + o.Height;
+            top = Math.Min(top, zMax);
+            _height = top - baseZ;
+            if (_height < Conv.Cm(1))
+            {
+                _report.Warn($"{where}: altura disponível insuficiente para o revestimento.");
+                return 0;
+            }
+
+            Line face = Line.CreateBound(At(hMin, 0), At(hMax, 0));
+            Line centre = Line.CreateBound(At(hMin, o.Thickness / 2), At(hMax, o.Thickness / 2));
+            double t0 = centre.GetEndPoint(0).DotProduct(h);
+            int created = 0;
+            foreach ((double a, double b, bool ja, bool jb) s in Split(t0, centre.GetEndPoint(1).DotProduct(h), false, false, Cuts(host, face, o, baseZ)))
+            {
+                if (Math.Abs(s.b - s.a) < Conv.Cm(1)) continue;
+                Line l = Line.CreateBound(centre.GetEndPoint(0) + h * (s.a - t0), centre.GetEndPoint(0) + h * (s.b - t0));
+                Wall made = NewWall(level, l, o, baseZ, false, false, where);
+                if (made == null) continue;
+                created++;
+                AddHoles(made, host, face, l, baseZ);
+            }
+            if (created > 0) Fillers(level, centre, host, face, o, baseZ, where);
+            return created;
         }
 
         // ================================================================== perfil de parede
@@ -418,7 +595,7 @@ namespace DetalhaBIM.Services
                     {
                         Level level = _doc.GetElement(ws.get_Parameter(BuiltInParameter.WALL_SWEEP_LEVEL_PARAM)?.AsElementId() ?? ElementId.InvalidElementId) as Level;
                         if (level != null) Q.Set(ws, BuiltInParameter.WALL_SWEEP_OFFSET_PARAM, baseZ - level.Elevation);
-                        Q.Set(ws, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, Marker);
+                        Q.Set(ws, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, o.Label);
                         _doc.Regenerate();
                         if (OnSide(ws, wall, roomSide)) result = ws;
                     }
@@ -468,9 +645,9 @@ namespace DetalhaBIM.Services
         // ================================================================== tipos
 
         /// <summary>Tipo de parede de rodapé (camada única de acabamento), criado se não existir.</summary>
-        public static WallType EnsureWallType(Document doc, double thickness, Material material)
+        public static WallType EnsureWallType(Document doc, double thickness, Material material, string kind = "Rodapé")
         {
-            string name = $"DetalhaBIM - Rodapé {Conv.Format(Conv.ToCm(thickness), 1)} cm" + (material != null ? " - " + material.Name : string.Empty);
+            string name = $"DetalhaBIM - {kind} {Conv.Format(Conv.ToCm(thickness), 1)} cm" + (material != null ? " - " + material.Name : string.Empty);
             name = ViewTools.Sanitize(name);
             WallType existing = Q.All<WallType>(doc).FirstOrDefault(t => t.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (existing != null) return existing;

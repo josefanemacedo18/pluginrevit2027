@@ -16,7 +16,7 @@ namespace DetalhaBIM.Commands.Cotas
     [Transaction(TransactionMode.Manual)]
     public class CotarObjetosCommand : CommandBase
     {
-        protected override string Title => "Cotar Objetos (3D e 2D)";
+        protected override string Title => "Cotar Componentes";
 
         protected override Result Run(CommandContext ctx)
         {
@@ -28,11 +28,11 @@ namespace DetalhaBIM.Commands.Cotas
             bool is3D = view is View3D;
 
             var dlg = new OptionsDialog("cotar-objetos", Title,
-                "Selecione paredes, móveis, marcenaria ou qualquer família: o DetalhaBIM cota as dimensões de cada um na vista ativa — inclusive em vistas 3D isométricas.",
+                "Selecione componentes (famílias inseridas por Componente: mobiliário, marcenaria, blocos, louças, equipamentos...) ou paredes: o DetalhaBIM cota largura, profundidade e altura de cada um na vista ativa — inclusive em vistas 3D isométricas.",
                 Theme.Cotas, ctx.MainWindow, "Selecionar");
             FormBuilder f = dlg.Form;
             f.Section("Dimensões");
-            f.Check("largura", "Largura (paredes: comprimento)", true);
+            f.Check("largura", "Largura / comprimento", true);
             f.Check("profundidade", "Profundidade (paredes: espessura) — plantas e 3D", true);
             f.Check("altura", "Altura — cortes, elevações e 3D", true);
             f.Check("vaos", "Paredes: cadeia com os vãos de portas e janelas", true);
@@ -44,10 +44,10 @@ namespace DetalhaBIM.Commands.Cotas
                 f.Hint("Vistas 3D: para receber cotas a vista precisa estar travada. O DetalhaBIM salva a orientação e trava a vista (ou uma cópia dela, se for a vista {3D} padrão). Nas vistas 3D as cotas ficam do lado voltado para você.");
             if (!dlg.Run()) return Result.Cancelled;
 
+            // Componentes = instâncias de famílias carregáveis de modelo (o que se insere pelo comando Componente) e paredes.
             var filter = new PredicateFilter(e => e.Category != null && e.Category.CategoryType == CategoryType.Model
-                                                  && !(e is SpatialElement) && !(e is ElementType)
-                                                  && e.Category.BuiltInCategory != BuiltInCategory.OST_Rooms);
-            List<Element> elements = Pick.SelectedOrPick(ctx.UiDoc, filter, "Selecione os objetos a cotar e clique em Concluir");
+                                                  && (e is FamilyInstance || e is Wall));
+            List<Element> elements = Pick.SelectedOrPick(ctx.UiDoc, filter, "Selecione os componentes (ou paredes) a cotar e clique em Concluir");
             if (elements.Count == 0) return Result.Cancelled;
 
             if (view is View3D v3 && !v3.IsLocked)

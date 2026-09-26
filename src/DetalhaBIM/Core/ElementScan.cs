@@ -5,16 +5,18 @@ using Autodesk.Revit.DB;
 
 namespace DetalhaBIM.Core
 {
-    /// <summary>Face plana com referência cotável, em coordenadas do projeto.</summary>
+    /// <summary>Face plana com referência cotável, com posição e normal em coordenadas do projeto.</summary>
     public class ScanFace
     {
         public PlanarFace Face { get; set; }
         public Reference Reference { get; set; }
         public XYZ Normal { get; set; }
         public XYZ Origin { get; set; }
+        /// <summary>Transformação do símbolo para o projeto (identidade para paredes, pisos...).</summary>
+        public Transform Transform { get; set; }
     }
 
-    /// <summary>Aresta reta com referência cotável, em coordenadas do projeto.</summary>
+    /// <summary>Aresta ou linha reta (inclusive linhas simbólicas da família) com referência cotável.</summary>
     public class ScanEdge
     {
         public Reference Reference { get; set; }
@@ -23,11 +25,14 @@ namespace DetalhaBIM.Core
     }
 
     /// <summary>
-    /// Leitura da geometria de um elemento qualquer (parede, móvel, marcenaria, luminária...)
-    /// para cotá-lo: faces, arestas e pontos, com referências válidas na vista informada.
-    /// Oferece, para cada eixo, várias alternativas de referências extremas (planos de
-    /// referência da família, faces da instância, faces do símbolo e arestas), já que cada
-    /// família é modelada de um jeito.
+    /// Leitura da geometria de um elemento qualquer (parede, móvel, marcenaria, bloco de
+    /// componente...) para cotá-lo.
+    /// <para>
+    /// Importante: segundo a documentação do Revit, somente as referências da geometria do
+    /// <b>símbolo</b> (GetSymbolGeometry sem transformação) servem para cotas; as da geometria da
+    /// instância são cópias e geram cotas inválidas. Por isso as referências vêm do símbolo e as
+    /// posições são convertidas para o projeto pela transformação da instância.
+    /// </para>
     /// </summary>
     public class ElementScan
     {
@@ -37,44 +42,29 @@ namespace DetalhaBIM.Core
         }
 
         public Element Element { get; }
+        /// <summary>Faces planas com referência válida para cotas.</summary>
         public List<ScanFace> Faces { get; } = new List<ScanFace>();
-        public List<ScanFace> SymbolFaces { get; } = new List<ScanFace>();
+        /// <summary>Arestas e linhas simbólicas retas com referência válida para cotas.</summary>
         public List<ScanEdge> Edges { get; } = new List<ScanEdge>();
+        /// <summary>
+        /// Pontos da geometria (para as extensões), em coordenadas do projeto: dos sólidos, quando
+        /// houver (linhas simbólicas como o arco de abertura de portas não aumentam a medida); só as
+        /// linhas quando a família não tiver sólidos na vista.
+        /// </summary>
         public List<XYZ> Points { get; } = new List<XYZ>();
+
+        private readonly List<XYZ> _solidPoints = new List<XYZ>();
+        private readonly List<XYZ> _curvePoints = new List<XYZ>();
 
         public static ElementScan Of(Element e, View view)
         {
             var scan = new ElementScan(e);
-            GeometryElement ge = null;
-            try
-            {
-                var options = new Options { ComputeReferences = true, IncludeNonVisibleObjects = false };
-                if (view != null && !(view is ViewSheet)) options.View = view;
-                ge = e.get_Geometry(options);
-            }
-            catch
-            {
-                // Sem geometria na vista: tenta sem vista.
-            }
-            if (ge == null)
-            {
-                try
-                {
-                    ge = e.get_Geometry(new Options { ComputeReferences = true, IncludeNonVisibleObjects = false });
-                }
-                catch
-                {
-                    // Elemento sem geometria.
-                }
-            }
-            if (ge != null)
-            {
-                scan.Read(ge, false, Transform.Identity);
-                scan.ReadSymbols(ge, Transform.Identity);
-            }
+            GeometryElement ge = Geometry(e, view) ?? Geometry(e, null);
+            if (ge != null) scan.ReadTop(ge);
+            scan.Points.AddRange(scan._solidPoints.Count > 0 ? scan._solidPoints : scan._curvePoints);
             if (scan.Points.Count == 0)
             {
-                BoundingBoxXYZ bb = e.get_BoundingBox(null);
+                BoundingBoxXYZ bb = e.get_BoundingBox(view) ?? e.get_BoundingBox(null);
                 if (bb != null)
                 {
                     Transform t = bb.Transform ?? Transform.Identity;
@@ -87,78 +77,158 @@ namespace DetalhaBIM.Core
             return scan;
         }
 
-        private void Read(GeometryElement ge, bool symbol, Transform tr)
+        private static GeometryElement Geometry(Element e, View view)
+        {
+            try
+            {
+                var options = new Options { ComputeReferences = true, IncludeNonVisibleObjects = false };
+                if (view != null && !(view is ViewSheet)) options.View = view;
+                return e.get_Geometry(options);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Geometria do nível superior do elemento.</summary>
+        private void ReadTop(GeometryElement ge)
         {
             foreach (GeometryObject obj in ge)
             {
-                if (obj is Solid s && s.Faces.Size > 0)
+                if (obj is GeometryInstance gi)
                 {
-                    foreach (Face f in s.Faces)
-                    {
-                        if (!(f is PlanarFace pf) || pf.Reference == null) continue;
-                        var sf = new ScanFace
-                        {
-                            Face = pf,
-                            Reference = pf.Reference,
-                            Normal = tr.OfVector(pf.FaceNormal).Normalize(),
-                            Origin = tr.OfPoint(pf.Origin),
-                        };
-                        (symbol ? SymbolFaces : Faces).Add(sf);
-                    }
-                    if (symbol) continue;
-                    foreach (Edge edge in s.Edges)
-                    {
-                        Curve c;
-                        try
-                        {
-                            c = edge.AsCurve();
-                        }
-                        catch
-                        {
-                            continue;
-                        }
-                        if (c == null) continue;
-                        Points.Add(c.GetEndPoint(0));
-                        Points.Add(c.GetEndPoint(1));
-                        if (c is Line l && edge.Reference != null)
-                            Edges.Add(new ScanEdge { Reference = edge.Reference, Direction = l.Direction.Normalize(), Mid = Geo.Mid(l) });
-                    }
-                }
-                else if (obj is GeometryInstance gi && !symbol)
-                {
-                    GeometryElement inst = null;
+                    // Pontos (extensão) pela geometria da instância, que inclui famílias aninhadas.
                     try
                     {
-                        inst = gi.GetInstanceGeometry();
+                        GeometryElement inst = gi.GetInstanceGeometry();
+                        if (inst != null) ReadPoints(inst);
                     }
                     catch
                     {
                         // Instância sem geometria.
                     }
-                    if (inst != null) Read(inst, false, tr);
+                    // Referências pela geometria do símbolo (as únicas válidas para cotas).
+                    try
+                    {
+                        GeometryElement sym = gi.GetSymbolGeometry();
+                        if (sym != null) ReadRefs(sym, gi.Transform);
+                    }
+                    catch
+                    {
+                        // Símbolo indisponível.
+                    }
                 }
-                else if (obj is GeometryInstance nested && symbol)
+                else
                 {
-                    GeometryElement sym = nested.GetSymbolGeometry();
-                    if (sym != null) Read(sym, true, tr.Multiply(nested.Transform));
+                    ReadObject(obj, Transform.Identity, true);
                 }
             }
         }
 
-        private void ReadSymbols(GeometryElement ge, Transform tr)
+        private void ReadRefs(GeometryElement ge, Transform tr)
         {
             foreach (GeometryObject obj in ge)
             {
-                if (!(obj is GeometryInstance gi)) continue;
-                try
+                // Famílias aninhadas: as referências internas não são confiáveis para cotas.
+                if (obj is GeometryInstance) continue;
+                ReadObject(obj, tr, false);
+            }
+        }
+
+        private void ReadObject(GeometryObject obj, Transform tr, bool points)
+        {
+            switch (obj)
+            {
+                case Solid s when s.Faces.Size > 0:
+                    foreach (Face f in s.Faces)
+                    {
+                        if (!(f is PlanarFace pf) || pf.Reference == null) continue;
+                        Faces.Add(new ScanFace
+                        {
+                            Face = pf,
+                            Reference = pf.Reference,
+                            Normal = tr.OfVector(pf.FaceNormal).Normalize(),
+                            Origin = tr.OfPoint(pf.Origin),
+                            Transform = tr,
+                        });
+                    }
+                    foreach (Edge edge in s.Edges)
+                    {
+                        Curve c = AsCurve(edge);
+                        if (c == null) continue;
+                        if (points)
+                        {
+                            _solidPoints.Add(c.GetEndPoint(0));
+                            _solidPoints.Add(c.GetEndPoint(1));
+                        }
+                        if (c is Line l && edge.Reference != null) AddEdge(edge.Reference, l, tr);
+                    }
+                    break;
+                case Curve curve:
+                    if (points && curve.IsBound)
+                    {
+                        _curvePoints.Add(curve.GetEndPoint(0));
+                        _curvePoints.Add(curve.GetEndPoint(1));
+                    }
+                    if (curve is Line line && line.IsBound && curve.Reference != null) AddEdge(curve.Reference, line, tr);
+                    break;
+            }
+        }
+
+        private void AddEdge(Reference r, Line l, Transform tr)
+        {
+            Edges.Add(new ScanEdge
+            {
+                Reference = r,
+                Direction = tr.OfVector(l.Direction).Normalize(),
+                Mid = tr.OfPoint(Geo.Mid(l)),
+            });
+        }
+
+        private void ReadPoints(GeometryElement ge)
+        {
+            foreach (GeometryObject obj in ge)
+            {
+                switch (obj)
                 {
-                    GeometryElement sym = gi.GetSymbolGeometry();
-                    if (sym != null) Read(sym, true, tr.Multiply(gi.Transform));
+                    case Solid s when s.Faces.Size > 0:
+                        foreach (Edge edge in s.Edges)
+                        {
+                            Curve c = AsCurve(edge);
+                            if (c == null) continue;
+                            _solidPoints.Add(c.GetEndPoint(0));
+                            _solidPoints.Add(c.GetEndPoint(1));
+                        }
+                        break;
+                    case Curve curve when curve.IsBound:
+                        _curvePoints.Add(curve.GetEndPoint(0));
+                        _curvePoints.Add(curve.GetEndPoint(1));
+                        break;
+                    case GeometryInstance gi:
+                        try
+                        {
+                            GeometryElement inst = gi.GetInstanceGeometry();
+                            if (inst != null) ReadPoints(inst);
+                        }
+                        catch
+                        {
+                            // sem geometria
+                        }
+                        break;
                 }
-                catch
-                {
-                    // Símbolo indisponível.
-                }
+            }
+        }
+
+        private static Curve AsCurve(Edge edge)
+        {
+            try
+            {
+                return edge.AsCurve();
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -190,8 +260,8 @@ namespace DetalhaBIM.Core
 
         /// <summary>
         /// Alternativas de par de referências nas extremidades do elemento ao longo do eixo, na
-        /// ordem de preferência. <paramref name="planeNormal"/> (vistas 3D) restringe as arestas
-        /// às que ficam paralelas ao plano da cota.
+        /// ordem de preferência: planos de referência da família, faces e arestas/linhas.
+        /// <paramref name="planeNormal"/> (vistas 3D) restringe as arestas às paralelas ao plano da cota.
         /// </summary>
         public List<IList<RefPos>> ExtremePairs(XYZ axis, XYZ planeNormal = null)
         {
@@ -202,13 +272,10 @@ namespace DetalhaBIM.Core
             IList<RefPos> family = FamilyPair(axis, min, max);
             if (family != null) result.Add(family);
 
-            IList<RefPos> inst = FacePair(Faces, axis);
-            if (inst != null) result.Add(inst);
+            IList<RefPos> faces = FacePair(axis, min, max);
+            if (faces != null) result.Add(faces);
 
-            IList<RefPos> sym = FacePair(SymbolFaces, axis);
-            if (sym != null) result.Add(sym);
-
-            IList<RefPos> edges = EdgePair(axis, planeNormal);
+            IList<RefPos> edges = EdgePair(axis, planeNormal, min, max);
             if (edges != null) result.Add(edges);
             return result;
         }
@@ -239,7 +306,8 @@ namespace DetalhaBIM.Core
             foreach (ScanFace f in Faces)
             {
                 if (f.Normal.Z < 0.99 || f.Origin.Z > maxZ) continue;
-                XYZ q = Geo.WithZ(p, f.Origin.Z);
+                Transform inv = f.Transform.Inverse;
+                XYZ q = inv.OfPoint(Geo.WithZ(p, f.Origin.Z));
                 IntersectionResult ir = null;
                 try
                 {
@@ -249,7 +317,7 @@ namespace DetalhaBIM.Core
                 {
                     // Ponto fora da face.
                 }
-                if (ir == null || ir.XYZPoint == null || Geo.Flat(ir.XYZPoint - q).GetLength() > Conv.Mm(1)) continue;
+                if (ir == null || ir.XYZPoint == null || Geo.Flat(f.Transform.OfPoint(ir.XYZPoint) - Geo.WithZ(p, f.Origin.Z)).GetLength() > Conv.Mm(1)) continue;
                 if (best == null || f.Origin.Z > best.Origin.Z) best = f;
             }
             return best;
@@ -310,18 +378,27 @@ namespace DetalhaBIM.Core
             return null;
         }
 
-        private IList<RefPos> FacePair(List<ScanFace> faces, XYZ axis)
+        /// <summary>
+        /// As referências só valem se estiverem nas extremidades reais do objeto (ex.: a casca externa
+        /// de um armário pode vir de uma família aninhada, cujas faces não são cotáveis; as faces
+        /// internas dariam uma medida errada).
+        /// </summary>
+        private static bool AtExtents(double pa, double pb, double min, double max) =>
+            Math.Abs(pa - min) <= Conv.Mm(5) && Math.Abs(pb - max) <= Conv.Mm(5);
+
+        /// <summary>Faces mais externas perpendiculares ao eixo (só se estiverem nas extremidades do objeto).</summary>
+        private IList<RefPos> FacePair(XYZ axis, double min, double max)
         {
-            List<ScanFace> parallel = faces.Where(f => Geo.IsParallel(f.Normal, axis)).ToList();
+            List<ScanFace> parallel = Faces.Where(f => Geo.IsParallel(f.Normal, axis)).ToList();
             if (parallel.Count < 2) return null;
             ScanFace a = parallel.OrderBy(f => f.Origin.DotProduct(axis)).First();
             ScanFace b = parallel.OrderBy(f => f.Origin.DotProduct(axis)).Last();
             double pa = a.Origin.DotProduct(axis), pb = b.Origin.DotProduct(axis);
-            if (pb - pa < Conv.Mm(1)) return null;
+            if (pb - pa < Conv.Mm(1) || !AtExtents(pa, pb, min, max)) return null;
             return new List<RefPos> { new RefPos(a.Reference, pa, Element, 2), new RefPos(b.Reference, pb, Element, 2) };
         }
 
-        private IList<RefPos> EdgePair(XYZ axis, XYZ planeNormal)
+        private IList<RefPos> EdgePair(XYZ axis, XYZ planeNormal, double min, double max)
         {
             IEnumerable<ScanEdge> edges = Edges.Where(e => Geo.IsPerpendicular(e.Direction, axis, 0.01));
             if (planeNormal != null && !planeNormal.IsZeroLength())
@@ -334,7 +411,7 @@ namespace DetalhaBIM.Core
             ScanEdge a = list.OrderBy(e => e.Mid.DotProduct(axis)).First();
             ScanEdge b = list.OrderBy(e => e.Mid.DotProduct(axis)).Last();
             double pa = a.Mid.DotProduct(axis), pb = b.Mid.DotProduct(axis);
-            if (pb - pa < Conv.Mm(1)) return null;
+            if (pb - pa < Conv.Mm(1) || !AtExtents(pa, pb, min, max)) return null;
             return new List<RefPos> { new RefPos(a.Reference, pa, Element, 3), new RefPos(b.Reference, pb, Element, 3) };
         }
     }

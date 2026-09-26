@@ -32,6 +32,31 @@ namespace DetalhaBIM.Core
         public override string ToString() => FormattableString.Invariant($"({X:0.###}, {Y:0.###})");
     }
 
+    /// <summary>Uma peça da paginação no sistema da grade: retângulo e fração dentro do ambiente.</summary>
+    public readonly struct Tile
+    {
+        public Tile(int i, int j, double x0, double y0, double x1, double y1, double fraction)
+        {
+            I = i;
+            J = j;
+            X0 = x0;
+            Y0 = y0;
+            X1 = x1;
+            Y1 = y1;
+            Fraction = fraction;
+        }
+
+        public int I { get; }
+        public int J { get; }
+        public double X0 { get; }
+        public double Y0 { get; }
+        public double X1 { get; }
+        public double Y1 { get; }
+        /// <summary>Parte da peça dentro do ambiente (1 = inteira).</summary>
+        public double Fraction { get; }
+        public bool Whole => Fraction >= 0.999;
+    }
+
     /// <summary>Resultado da contagem de peças de uma paginação.</summary>
     public class TileCount
     {
@@ -243,6 +268,24 @@ namespace DetalhaBIM.Core
         {
             List<List<P2>> grid = Normalize(ToGrid(loops, origin, xAxis));
             var result = new TileCount { AreaPeca = w * h, AreaRegiao = grid.Sum(l => SignedArea(l)) };
+            foreach (Tile t in Tiles(loops, origin, xAxis, w, h, joint, minFraction))
+            {
+                if (t.Whole) result.Inteiras++;
+                else result.Cortadas++;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Peças da paginação que ficam (no todo ou em parte) dentro do ambiente, no sistema da grade.
+        /// A peça (i, j) ocupa [i·(w+junta), i·(w+junta)+w] × [j·(h+junta), j·(h+junta)+h].
+        /// Peças com menos de <paramref name="minFraction"/> da área dentro são desprezadas
+        /// (resolvidas no rejunte).
+        /// </summary>
+        public static List<Tile> Tiles(IEnumerable<IList<P2>> loops, P2 origin, P2 xAxis, double w, double h, double joint, double minFraction = 0.005)
+        {
+            var result = new List<Tile>();
+            List<List<P2>> grid = Normalize(ToGrid(loops, origin, xAxis));
             if (grid.Count == 0 || w <= 0 || h <= 0) return result;
 
             double px = w + Math.Max(0, joint), py = h + Math.Max(0, joint);
@@ -273,11 +316,52 @@ namespace DetalhaBIM.Core
                         if (clipped.Count >= 3) area += SignedArea(clipped);
                     }
                     double frac = area / (w * h);
-                    if (frac >= 0.999) result.Inteiras++;
-                    else if (frac > minFraction) result.Cortadas++;
+                    if (frac > minFraction) result.Add(new Tile(i, j, x0, y0, x1, y1, Math.Min(1, frac)));
                 }
             }
             return result;
+        }
+
+        /// <summary>Posições (no sistema da grade) das linhas de junta que cortam a região, nos dois eixos.</summary>
+        public static (List<double> xs, List<double> ys) JointPositions(IEnumerable<IList<P2>> loops, P2 origin, P2 xAxis, double w, double h, double joint)
+        {
+            var xs = new List<double>();
+            var ys = new List<double>();
+            List<List<P2>> grid = ToGrid(loops, origin, xAxis);
+            if (grid.Count == 0 || w <= 0 || h <= 0) return (xs, ys);
+            double j = Math.Max(0, joint);
+            double px = w + j, py = h + j;
+            Bounds(grid, out double minX, out double minY, out double maxX, out double maxY);
+            for (int i = (int)Math.Floor((minX - w) / px) - 1; i <= (int)Math.Ceiling(maxX / px) + 1; i++)
+            {
+                double x = i * px + w + j / 2;
+                if (x > minX && x < maxX) xs.Add(x);
+            }
+            for (int k = (int)Math.Floor((minY - h) / py) - 1; k <= (int)Math.Ceiling(maxY / py) + 1; k++)
+            {
+                double y = k * py + h + j / 2;
+                if (y > minY && y < maxY) ys.Add(y);
+            }
+            return (xs, ys);
+        }
+
+        /// <summary>
+        /// Verifica se a direção <paramref name="q"/> (a partir do centro) está dentro do trecho de
+        /// arco que vai de <paramref name="p0"/> a <paramref name="p1"/> passando por <paramref name="pm"/>.
+        /// </summary>
+        public static bool OnArc(P2 p0, P2 pm, P2 p1, P2 q)
+        {
+            double a0 = Math.Atan2(p0.Y, p0.X), am = Math.Atan2(pm.Y, pm.X), a1 = Math.Atan2(p1.Y, p1.X), aq = Math.Atan2(q.Y, q.X);
+            double sweep = Norm(a1 - a0);
+            bool ccw = Norm(am - a0) < sweep;
+            if (ccw) return Norm(aq - a0) <= sweep + 1e-9;
+            return Norm(aq - a1) <= Norm(a0 - a1) + 1e-9;
+        }
+
+        private static double Norm(double a)
+        {
+            double t = a % (2 * Math.PI);
+            return t < 0 ? t + 2 * Math.PI : t;
         }
 
         /// <summary>
