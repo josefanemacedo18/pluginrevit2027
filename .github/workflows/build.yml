@@ -27,7 +27,9 @@ jobs:
         run: |
           $v = (Select-String -Path src/DetalhaBIM/DetalhaBIM.csproj -Pattern '<Version>(.+)</Version>').Matches[0].Groups[1].Value
           "versao=$v" >> $env:GITHUB_OUTPUT
-          Write-Host "Versão: $v"
+          $n = (Select-String -Path src/DetalhaBIM/Ribbon/ToolCatalog.cs -Pattern 'Command\s*=\s*typeof' -AllMatches).Matches.Count
+          "comandos=$n" >> $env:GITHUB_OUTPUT
+          Write-Host "Versão: $v ($n ferramentas)"
 
       - name: Compilar as ferramentas de teste
         run: |
@@ -121,4 +123,4 @@ jobs:
 
             Passo a passo completo e solução de problemas: `COMO-INSTALAR.txt` (dentro do ZIP).
 
-            Verificado automaticamente em Windows: manifesto, caminho da DLL, compatibilidade com qualquer atualização do Revit 2027, 23 comandos, ícones e janelas.
+            Verificado automaticamente em Windows: manifesto, caminho da DLL, compatibilidade com qualquer atualização do Revit 2027, ${{ steps.versao.outputs.comandos }} ferramentas, ícones e janelas.
