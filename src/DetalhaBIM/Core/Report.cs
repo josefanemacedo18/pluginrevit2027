@@ -15,6 +15,7 @@ namespace DetalhaBIM.Core
         private readonly Dictionary<string, int> _counters = new Dictionary<string, int>();
         private readonly List<string> _order = new List<string>();
         private readonly List<string> _warnings = new List<string>();
+        private readonly List<string> _notes = new List<string>();
 
         public Report(string title)
         {
@@ -37,6 +38,13 @@ namespace DetalhaBIM.Core
 
         public int Get(string what) => _counters.TryGetValue(what, out int v) ? v : 0;
 
+        /// <summary>Linha informativa exibida abaixo das contagens (ex.: totais em metros).</summary>
+        public void Info(string message)
+        {
+            if (!_notes.Contains(message)) _notes.Add(message);
+            Logger.Info(_title + ": " + message);
+        }
+
         public void Warn(string message)
         {
             if (!_warnings.Contains(message)) _warnings.Add(message);
@@ -50,11 +58,16 @@ namespace DetalhaBIM.Core
             {
                 if (_counters[key] > 0) content.AppendLine($"• {_counters[key]} {key}");
             }
+            if (_notes.Count > 0)
+            {
+                if (content.Length > 0) content.AppendLine();
+                foreach (string n in _notes) content.AppendLine(n);
+            }
 
             var td = new TaskDialog("DetalhaBIM")
             {
                 Title = "DetalhaBIM - " + _title,
-                MainInstruction = Total > 0 ? "Concluído" : emptyMessage,
+                MainInstruction = Total > 0 || _notes.Count > 0 ? "Concluído" : emptyMessage,
                 MainContent = content.ToString().TrimEnd(),
                 CommonButtons = TaskDialogCommonButtons.Ok,
             };

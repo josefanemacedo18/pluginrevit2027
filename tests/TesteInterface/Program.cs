@@ -41,6 +41,7 @@ namespace DetalhaBIM.TesteInterface
             Run("Janela de Configurações", TestarSettingsWindow);
             Run("Editor de Níveis", TestarLevelEditor);
             Run("Limpar Ambientes", TestarRoomCleanup);
+            Run("Tabela de resultados (Paginação e Levantamento)", TestarTabela);
 
             Console.WriteLine($"\n=== Resultado: {_ok} verificações OK, {_falhas} falha(s).");
             return _falhas == 0 ? 0 : 1;
@@ -230,6 +231,26 @@ namespace DetalhaBIM.TesteInterface
             var w = new RoomCleanupWindow(rows, IntPtr.Zero);
             Check(AbrirEFechar(w), "Limpar Ambientes abre, renderiza e fecha");
             Check(w.SelectedIds.SequenceEqual(new long[] { 2 }), "Somente o ambiente com problema vem marcado");
+        }
+
+        private static void TestarTabela()
+        {
+            var headers = new List<string> { "Ambiente", "Área (m²)", "Obs." };
+            var rows = new List<string[]>
+            {
+                new[] { "101 - SALA", "20,50", "piso; rodapé" },
+                new[] { "102 - COZINHA \"GOURMET\"", "12,00", "" },
+            };
+            string csv = TableWindow.ToCsv(headers, rows);
+            string[] linhas = csv.Replace("\r", "").TrimEnd('\n').Split('\n');
+            Check(linhas.Length == 3 && linhas[0] == "Ambiente;Área (m²);Obs.", "CSV com cabeçalho e separador \";\" (Excel em português)");
+            Check(linhas[1] == "101 - SALA;20,50;\"piso; rodapé\"", "CSV protege células que contêm \";\"");
+            Check(linhas[2] == "\"102 - COZINHA \"\"GOURMET\"\"\";12,00;", "CSV escapa aspas");
+            Check(TableWindow.ToTsv(headers, rows).Split('\n')[1].Split('\t').Length == 3, "Cópia para o Excel separada por tabulação");
+
+            var w = new TableWindow("Levantamento", "Teste", Theme.Interiores, IntPtr.Zero, headers, rows, "teste.csv", "Rodapé da tabela");
+            Check(AbrirEFechar(w), "Tabela de resultados abre, renderiza e fecha");
+            Check(w.Grid.Columns.Count == 3 && w.Grid.Items.Count == 2, "Tabela mostra 3 colunas e 2 linhas");
         }
     }
 }

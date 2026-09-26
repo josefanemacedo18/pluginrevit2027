@@ -33,6 +33,7 @@ namespace DetalhaBIM.Commands.Cotas
             f.Check("horizontal", "Cota horizontal (largura do ambiente)", true);
             f.Check("vertical", "Cota vertical (profundidade do ambiente)", true);
             f.Check("aberturas", "Cotar vãos de portas e janelas ao longo das paredes", true);
+            f.Check("inclinadas", "Paredes inclinadas: cota alinhada com cada parede", true);
             f.Section("Posição das linhas de cota");
             f.Radio("posicao", null, new[] { "No centro do ambiente", "Junto à parede (inferior/esquerda)" }, 0);
             f.Number("afastamento", "Afastamento da parede", s.AfastamentoInternoMm, "mm na folha");
@@ -54,6 +55,7 @@ namespace DetalhaBIM.Commands.Cotas
                 WallOffset = offset,
                 Openings = f.Bool("aberturas"),
                 OpeningsOffset = offset,
+                Inclined = f.Bool("inclinadas"),
             };
             var builder = new DimensionBuilder(doc, view, Q.DimensionType(doc, Choices.Value(f.String("tipo"))), Conv.Cm(s.MenorSegmentoCm));
 

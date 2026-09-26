@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Testes da geometria plana usada pela Paginação de Piso (contagem de peças, recortes e
+    linhas de junta). O arquivo é compilado diretamente do plugin e não depende do Revit, por
+    isso roda em qualquer sistema (Windows ou Linux).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\DetalhaBIM\Core\Plano2D.cs" Link="Plano2D.cs" />
+  </ItemGroup>
+
+</Project>

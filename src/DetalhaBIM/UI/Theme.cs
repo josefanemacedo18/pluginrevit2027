@@ -16,6 +16,7 @@ namespace DetalhaBIM.UI
         public static readonly Color Documentacao = Color.FromRgb(0xE8, 0x83, 0x0C);
         public static readonly Color Organizacao = Color.FromRgb(0x8E, 0x44, 0xAD);
         public static readonly Color Modelagem = Color.FromRgb(0x00, 0x89, 0x7B);
+        public static readonly Color Interiores = Color.FromRgb(0xB0, 0x3A, 0x6E);
         public static readonly Color Geral = Color.FromRgb(0x45, 0x5A, 0x64);
 
         private static ResourceDictionary _dictionary;

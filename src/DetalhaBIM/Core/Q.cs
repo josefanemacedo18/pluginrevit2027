@@ -92,6 +92,26 @@ namespace DetalhaBIM.Core
             return TypeByLabel(Symbols(doc, bic), label);
         }
 
+        public static List<ElementType> SweepTypes(Document doc)
+        {
+            return new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Cornices).WhereElementIsElementType()
+                .Cast<ElementType>().OrderBy(Label).ToList();
+        }
+
+        /// <summary>
+        /// Material pelo nome. Se <paramref name="create"/> for verdadeiro e ele não existir, cria um
+        /// material novo com esse nome (deve ser chamado dentro de uma transação).
+        /// </summary>
+        public static Material Material(Document doc, string name, bool create, Report report = null)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            Material m = All<Material>(doc).FirstOrDefault(x => x.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (m != null || !create) return m;
+            ElementId id = Autodesk.Revit.DB.Material.Create(doc, name.Trim());
+            report?.Count("materiais criados");
+            return doc.GetElement(id) as Material;
+        }
+
         // ------------------------------------------------------------------ parâmetros
 
         public static double? Double(Element e, BuiltInParameter bip)

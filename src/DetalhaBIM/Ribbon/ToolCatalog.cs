@@ -4,6 +4,7 @@ using System.Windows.Media;
 using DetalhaBIM.Commands.Cotas;
 using DetalhaBIM.Commands.Documentacao;
 using DetalhaBIM.Commands.Geral;
+using DetalhaBIM.Commands.Interiores;
 using DetalhaBIM.Commands.Modelagem;
 using DetalhaBIM.Commands.Organizacao;
 using DetalhaBIM.Commands.Vistas;
@@ -41,6 +42,7 @@ namespace DetalhaBIM.Ribbon
         {
             new PanelDef { Name = "Cotas", Color = Theme.Cotas },
             new PanelDef { Name = "Vistas", Color = Theme.Vistas },
+            new PanelDef { Name = "Interiores", Color = Theme.Interiores },
             new PanelDef { Name = "Documentação", Color = Theme.Documentacao },
             new PanelDef { Name = "Organização", Color = Theme.Organizacao },
             new PanelDef { Name = "Modelagem", Color = Theme.Modelagem },
@@ -70,6 +72,20 @@ namespace DetalhaBIM.Ribbon
                 Availability = typeof(PlanViewAvailability),
                 Tooltip = "Cotas externas de todo o pavimento, nos quatro lados.",
                 Description = "Identifica automaticamente as paredes de fachada da planta ativa (inclusive em edificações rotacionadas) e cria as linhas de cota de vãos, paredes e total em cada lado escolhido.",
+            },
+            new ToolDef
+            {
+                Panel = "Cotas", Id = "CotaAlinhada", Text = "Cota\nAlinhada", Command = typeof(CotaAlinhadaCommand), Icon = "cota-alinhada",
+                Availability = typeof(PlanViewAvailability),
+                Tooltip = "Cota paralela à parede em qualquer inclinação.",
+                Description = "Clique em uma parede (inclinada, chanfrada ou em planta rotacionada) e no lado a cotar: são criadas cotas alinhadas com a face — vãos, paredes que chegam e comprimento total —, medindo até os cantos reais mesmo quando as pontas são chanfradas. No modo livre, mede entre dois pontos quaisquer paralelamente a uma parede, eixo ou linha.",
+            },
+            new ToolDef
+            {
+                Panel = "Cotas", Id = "CotarObjetos", Text = "Cotar\nObjetos 3D", Command = typeof(CotarObjetosCommand), Icon = "cotas-3d",
+                Availability = typeof(DimensionViewAvailability),
+                Tooltip = "Cota paredes e qualquer família — inclusive em vistas isométricas 3D.",
+                Description = "Selecione paredes, móveis, marcenaria, louças ou qualquer família: largura, profundidade e altura são cotadas na vista ativa — vistas 3D isométricas (a vista é travada automaticamente), plantas, cortes e elevações. Paredes recebem comprimento, espessura, altura e os vãos.",
             },
             new ToolDef
             {
@@ -123,6 +139,46 @@ namespace DetalhaBIM.Ribbon
                 Panel = "Vistas", Id = "Elevacoes", Text = "Elevações", Command = typeof(ElevacoesCommand), Icon = "elevacoes", Small = true,
                 Tooltip = "Elevações internas (uma por parede) dos ambientes selecionados.",
                 Description = "Atalho de um clique: para cada parede dos ambientes selecionados, cria uma elevação interna recortada e pronta para detalhar.",
+            },
+
+            // ------------------------------------------------------------ Interiores
+            new ToolDef
+            {
+                Panel = "Interiores", Id = "Rodapes", Text = "Rodapés", Command = typeof(RodapesCommand), Icon = "rodapes",
+                Tooltip = "Rodapé em todo o contorno dos ambientes, cortado nas portas.",
+                Description = "Cria o rodapé de cada ambiente pelo contorno de acabamento: como parede fina (altura, espessura e material à escolha, cantos resolvidos, contornando pilares, interrompido em portas e portas-janelas, apoiado sobre o piso) ou como perfil de parede (Wall Sweep) do projeto. Informa o total em metros.",
+            },
+            new ToolDef
+            {
+                Panel = "Interiores", Id = "PaginacaoPiso", Text = "Paginação\nde Piso", Command = typeof(PaginacaoPisoCommand), Icon = "paginacao",
+                Availability = typeof(PlanViewAvailability),
+                Tooltip = "Juntas do piso desenhadas e quantidade de peças por ambiente.",
+                Description = "Desenha a paginação do revestimento dentro de cada ambiente (peça, junta, ângulo e ponto de partida: junta ou peça centralizada, canto ou ponto clicado), contornando pilares, e calcula peças inteiras e cortadas, área com perda e caixas. Tabela exportável para Excel.",
+            },
+            new ToolDef
+            {
+                Panel = "Interiores", Id = "Acabamentos", Text = "Acabamentos", Command = typeof(AcabamentosCommand), Icon = "acabamentos",
+                Tooltip = "Pinta paredes, piso e teto dos ambientes e preenche o quadro de acabamentos.",
+                Description = "Aplica materiais de acabamento (ferramenta Pintura) nas faces de paredes, piso e teto que delimitam cada ambiente, criando o material se necessário, e preenche os parâmetros de acabamento de piso, parede, teto e rodapé usados nos quadros.",
+            },
+            new ToolDef
+            {
+                Panel = "Interiores", Id = "DetalharMarcenaria", Text = "Detalhar\nMarcenaria", Command = typeof(DetalharMarcenariaCommand), Icon = "marcenaria",
+                Tooltip = "Planta, vistas, isométrico cotados e prancha de cada peça.",
+                Description = "Para cada móvel de marcenaria, bancada ou mobiliário selecionado: planta recortada, vista frontal, vista lateral e isométrico com caixa de corte — nomeados, na escala, cotados (largura, profundidade e altura) e montados em prancha.",
+            },
+            new ToolDef
+            {
+                Panel = "Interiores", Id = "Locacao", Text = "Locação", Command = typeof(LocacaoCommand), Icon = "locacao", Small = true,
+                Availability = typeof(PlanOrSectionAvailability),
+                Tooltip = "Cotas de locação de móveis e pontos até as paredes e alturas.",
+                Description = "Selecione móveis, marcenaria, louças, tomadas, interruptores ou luminárias: em planta, cotas até as paredes mais próximas; em elevações, também a altura em relação ao piso acabado (pela face ou pelo eixo do objeto).",
+            },
+            new ToolDef
+            {
+                Panel = "Interiores", Id = "Levantamento", Text = "Levantamento", Command = typeof(LevantamentoCommand), Icon = "levantamento", Small = true,
+                Tooltip = "Quantitativo de piso, paredes, teto e rodapé por ambiente.",
+                Description = "Calcula por ambiente a área de piso, perímetro, paredes (descontando portas e janelas, até o forro), teto e rodapé (descontando portas), com perda para compra. Copie para o Excel ou exporte em CSV.",
             },
 
             // ------------------------------------------------------------ Documentação

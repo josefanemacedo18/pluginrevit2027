@@ -28,6 +28,16 @@ namespace DetalhaBIM.UI
             return (withDefault ? new[] { Choices.Default }.Concat(labels) : labels).ToList();
         }
 
+        public static List<string> Materials(Document doc, string first) =>
+            new[] { first }.Concat(Q.All<Material>(doc).Select(m => m.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n)).ToList();
+
+        /// <summary>Tipos de perfil de parede (Wall Sweep) — rodapés, molduras, cimalhas.</summary>
+        public static List<string> SweepTypes(Document doc) =>
+            Q.SweepTypes(doc).Select(Q.Label).ToList();
+
+        public static List<string> LineStyles(Document doc) =>
+            RefLines.LineStyles(doc).Select(g => g.Name).ToList();
+
         public static List<string> Types<T>(Document doc, bool withDefault = true) where T : ElementType
         {
             IEnumerable<string> labels = Q.All<T>(doc).Select(Q.Label).OrderBy(n => n);

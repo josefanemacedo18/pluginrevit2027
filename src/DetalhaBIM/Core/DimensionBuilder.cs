@@ -25,6 +25,15 @@ namespace DetalhaBIM.Core
             _minSegment = Math.Max(minSegment, Conv.Mm(2));
         }
 
+        /// <summary>
+        /// Somente em vistas 3D: normal do plano de trabalho onde a próxima cota será desenhada.
+        /// Deve ser perpendicular à direção da cota; se não for informada, usa o plano mais
+        /// voltado para o observador.
+        /// </summary>
+        public XYZ PlaneNormal { get; set; }
+
+        public View View => _view;
+
         public static DimensionBuilder FromSettings(Document doc, View view, CotasSettings s, string typeName = null)
         {
             DimensionType type = Q.DimensionType(doc, typeName ?? s.TipoCota);
@@ -102,7 +111,7 @@ namespace DetalhaBIM.Core
         /// </summary>
         private XYZ OnViewPlane(XYZ p)
         {
-            if (_view is ViewPlan || _view == null) return p;
+            if (_view is ViewPlan || _view is View3D || _view == null) return p;
             try
             {
                 XYZ n = _view.ViewDirection.Normalize();
@@ -112,6 +121,39 @@ namespace DetalhaBIM.Core
             {
                 return p;
             }
+        }
+
+        /// <summary>
+        /// Tenta cada conjunto de referências na ordem (ex.: planos de referência da família,
+        /// depois faces, depois arestas) e retorna a primeira cota aceita pelo Revit.
+        /// </summary>
+        public Dimension CreateFirst(IEnumerable<IList<RefPos>> candidates, XYZ dir, XYZ through)
+        {
+            foreach (IList<RefPos> refs in candidates)
+            {
+                if (refs == null || refs.Count(r => r?.Reference != null) < 2) continue;
+                Dimension d = Create(refs, dir, through);
+                if (d != null) return d;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Em vistas 3D o Revit desenha a cota no plano de trabalho da vista: cria um plano que
+        /// contém a linha de cota (perpendicular às referências).
+        /// </summary>
+        private void SetWorkPlane(XYZ origin, XYZ d)
+        {
+            XYZ n = PlaneNormal;
+            if (n == null || n.IsZeroLength() || !Geo.IsPerpendicular(n, d, 0.05))
+            {
+                XYZ v = _view.ViewDirection;
+                n = v - d * v.DotProduct(d);
+                if (n.IsZeroLength()) n = d.CrossProduct(XYZ.BasisZ);
+                if (n.IsZeroLength()) n = d.CrossProduct(XYZ.BasisX);
+            }
+            n = (n - d * n.DotProduct(d)).Normalize();
+            _view.SketchPlane = SketchPlane.Create(_doc, Plane.CreateByNormalAndOrigin(n, origin));
         }
 
         private bool Probe(List<RefPos> refs, XYZ d, XYZ through)
@@ -146,6 +188,7 @@ namespace DetalhaBIM.Core
                 XYZ p1 = through + d * (max - t0);
                 if (p0.DistanceTo(p1) < Conv.Mm(1)) return null;
                 Line line = Line.CreateBound(p0, p1);
+                if (_view is View3D) SetWorkPlane(p0, d);
 
                 return _type != null
                     ? _doc.Create.NewDimension(_view, line, array, _type)

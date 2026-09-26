@@ -19,6 +19,8 @@ namespace DetalhaBIM.Services
         public bool Openings { get; set; }
         /// <summary>Distância da cadeia de vãos até a parede (pés).</summary>
         public double OpeningsOffset { get; set; }
+        /// <summary>Paredes fora das duas direções principais recebem uma cota alinhada a elas.</summary>
+        public bool Inclined { get; set; }
     }
 
     /// <summary>
@@ -33,6 +35,7 @@ namespace DetalhaBIM.Services
         private readonly FaceFinder _faces;
         private readonly DimensionBuilder _builder;
         private readonly Report _report;
+        private RefLines _lines;
 
         public RoomDimensionService(Document doc, View view, DimensionBuilder builder, Report report)
         {
@@ -89,6 +92,35 @@ namespace DetalhaBIM.Services
             }
 
             if (o.Openings) created += OpeningChains(room, segs, z, o.OpeningsOffset);
+            if (o.Inclined) created += InclinedWalls(room, segs, frame, z, o.OpeningsOffset > 0 ? o.OpeningsOffset : Conv.PaperMm(6, _view));
+            return created;
+        }
+
+        /// <summary>
+        /// Paredes inclinadas (fora das direções principais do ambiente): cota alinhada com a face
+        /// de acabamento, medida entre os cantos por meio de linhas de referência invisíveis.
+        /// </summary>
+        private int InclinedWalls(Room room, List<SegRef> segs, PlanFrame frame, double z, double offset)
+        {
+            if (!RefLines.Supported(_view)) return 0;
+            int created = 0;
+            foreach (SegRef s in segs)
+            {
+                if (Geo.IsParallel(s.Dir, frame.X, 0.9995) || Geo.IsParallel(s.Dir, frame.Y, 0.9995)) continue;
+                if (s.Line.Length < Conv.Cm(10)) continue;
+                _lines ??= new RefLines(_doc, _view);
+                XYZ t = s.Dir;
+                XYZ a = Geo.WithZ(s.Line.GetEndPoint(0), z), b = Geo.WithZ(s.Line.GetEndPoint(1), z);
+                RefPos ra = _lines.Across(a, t, a.DotProduct(t), 1);
+                RefPos rb = _lines.Across(b, t, b.DotProduct(t), 1);
+                if (ra == null || rb == null) continue;
+
+                XYZ n = Geo.LeftNormal(t);
+                XYZ mid = Geo.Mid(s.Line);
+                if (!RoomGeo.Contains(room, mid + n * Conv.Cm(20))) n = n.Negate();
+                if (_builder.Create(new[] { ra, rb }, t, Geo.WithZ(mid, z) + n * offset) != null) created++;
+                else _report.Warn($"Ambiente {RoomGeo.Label(room)}: não foi possível cotar uma parede inclinada.");
+            }
             return created;
         }
 

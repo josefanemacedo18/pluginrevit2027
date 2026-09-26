@@ -24,6 +24,30 @@ namespace DetalhaBIM.Ribbon
         }
     }
 
+    /// <summary>Plantas, cortes, elevações e vistas 3D ortogonais (isométricas).</summary>
+    public class DimensionViewAvailability : IExternalCommandAvailability
+    {
+        public bool IsCommandAvailable(UIApplication app, CategorySet selectedCategories)
+        {
+            Document doc = app.ActiveUIDocument?.Document;
+            if (doc == null || doc.IsFamilyDocument) return false;
+            View v = app.ActiveUIDocument.ActiveView;
+            return v != null && !v.IsTemplate && (v is ViewPlan || v is ViewSection || (v is View3D v3 && !v3.IsPerspective));
+        }
+    }
+
+    /// <summary>Plantas, cortes e elevações.</summary>
+    public class PlanOrSectionAvailability : IExternalCommandAvailability
+    {
+        public bool IsCommandAvailable(UIApplication app, CategorySet selectedCategories)
+        {
+            Document doc = app.ActiveUIDocument?.Document;
+            if (doc == null || doc.IsFamilyDocument) return false;
+            View v = app.ActiveUIDocument.ActiveView;
+            return v != null && !v.IsTemplate && (v is ViewPlan || v is ViewSection);
+        }
+    }
+
     /// <summary>Sempre disponível (configurações e ajuda).</summary>
     public class AlwaysAvailable : IExternalCommandAvailability
     {

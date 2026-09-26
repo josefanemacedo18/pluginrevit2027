@@ -34,6 +34,15 @@ namespace DetalhaBIM.Commands.Documentacao
             f.Text("nAreas", "   Nome", "QUADRO DE ÁREAS");
             f.Check("acabamentos", "Quadro de acabamentos dos ambientes", false);
             f.Text("nAcab", "   Nome", "QUADRO DE ACABAMENTOS");
+            f.Section("Interiores");
+            f.Check("mobiliario", "Quadro de mobiliário (código, descrição, fabricante, modelo, quantidade)", false);
+            f.Text("nMob", "   Nome", "QUADRO DE MOBILIÁRIO");
+            f.Check("marcenaria", "Quadro de marcenaria", false);
+            f.Text("nMarc", "   Nome", "QUADRO DE MARCENARIA");
+            f.Check("loucas", "Quadro de louças e metais", false);
+            f.Text("nLoucas", "   Nome", "QUADRO DE LOUÇAS E METAIS");
+            f.Check("luminarias", "Quadro de luminárias", false);
+            f.Text("nLum", "   Nome", "QUADRO DE LUMINÁRIAS");
             f.Section("Opções");
             f.Radio("existente", "Se já existir um quadro com o mesmo nome", new[] { "Criar outro com nome numerado", "Substituir (remove o anterior, inclusive das pranchas)" }, 0);
             f.Check("abrir", "Abrir o primeiro quadro criado", true);
@@ -49,6 +58,10 @@ namespace DetalhaBIM.Commands.Documentacao
                 if (f.Bool("janelas")) Keep(ref first, Openings(doc, BuiltInCategory.OST_Windows, f.String("nJanelas"), true, replace, report));
                 if (f.Bool("areas")) Keep(ref first, Areas(doc, f.String("nAreas"), replace, report));
                 if (f.Bool("acabamentos")) Keep(ref first, Finishes(doc, f.String("nAcab"), replace, report));
+                if (f.Bool("mobiliario")) Keep(ref first, Inventory(doc, BuiltInCategory.OST_Furniture, f.String("nMob"), replace, report));
+                if (f.Bool("marcenaria")) Keep(ref first, Inventory(doc, BuiltInCategory.OST_Casework, f.String("nMarc"), replace, report));
+                if (f.Bool("loucas")) Keep(ref first, Inventory(doc, BuiltInCategory.OST_PlumbingFixtures, f.String("nLoucas"), replace, report));
+                if (f.Bool("luminarias")) Keep(ref first, Inventory(doc, BuiltInCategory.OST_LightingFixtures, f.String("nLum"), replace, report));
             });
 
             report.Show();
@@ -144,6 +157,31 @@ namespace DetalhaBIM.Commands.Documentacao
             def.IsItemized = true;
             if (number != null) def.AddSortGroupField(new ScheduleSortGroupField(number.FieldId));
             report.Count("quadros de acabamentos");
+            return vs;
+        }
+
+        /// <summary>Quadro de itens de interiores agrupados por código (ou família e tipo), com quantidade.</summary>
+        private static ViewSchedule Inventory(Document doc, BuiltInCategory cat, string name, bool replace, Report report)
+        {
+            ViewSchedule vs = Create(doc, cat, name, replace);
+            var b = new FieldAdder(doc, vs);
+            ScheduleField code = b.Add("CÓDIGO", new[] { BuiltInParameter.ALL_MODEL_TYPE_MARK }, "Marca de tipo", "Type Mark");
+            ScheduleField type = b.Add("ITEM", new[] { BuiltInParameter.ELEM_FAMILY_AND_TYPE_PARAM }, "Família e tipo", "Family and Type");
+            b.Add("DESCRIÇÃO", new[] { BuiltInParameter.ALL_MODEL_DESCRIPTION }, "Descrição", "Description");
+            b.Add("FABRICANTE", new[] { BuiltInParameter.ALL_MODEL_MANUFACTURER }, "Fabricante", "Manufacturer");
+            b.Add("MODELO", new[] { BuiltInParameter.ALL_MODEL_MODEL }, "Modelo", "Model");
+            ScheduleField count = b.Count("QTD.");
+
+            ScheduleDefinition def = vs.Definition;
+            def.IsItemized = false;
+            if (code != null) def.AddSortGroupField(new ScheduleSortGroupField(code.FieldId));
+            if (type != null) def.AddSortGroupField(new ScheduleSortGroupField(type.FieldId));
+            if (count != null) def.ShowGrandTotal = true;
+            TrySet(() => def.ShowGrandTotalCount = true);
+            TrySet(() => def.ShowGrandTotalTitle = true);
+
+            report.Count("quadros de interiores");
+            if (b.Missing.Count > 0) report.Warn($"{vs.Name}: campos não encontrados — {string.Join(", ", b.Missing)}.");
             return vs;
         }
 
